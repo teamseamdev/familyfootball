@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Submit weekly picks</title><link rel="stylesheet" href="/styles.css"></head>
+<body class="pick-page">
+  <main class="pick-shell">
+    <header class="pick-header"><span class="brand-mark small">FP</span><div><p class="eyebrow">FAMILY FOOTBALL POOL</p><h1 id="pick-title">Loading this week…</h1></div></header>
+    <div class="form-note"><strong>Against the spread</strong><span id="pick-note">Choose one team in every matchup.</span></div>
+    <form id="pick-form" class="pick-form">
+      <label class="name-field"><span>Your name</span><select id="player-name" name="name" required><option value="">Choose your name</option></select></label>
+      <div id="pick-games"></div>
+      <button class="button primary submit-picks" type="submit">Lock in my picks</button>
+      <p id="form-message" role="status"></p>
+    </form>
+  </main>
+  <script type="module" src="/pick.js"></script>
+</body>
+</html>

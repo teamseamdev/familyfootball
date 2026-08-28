@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Family Football Pool</title><link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-mark small">FP</span><span>Family Pool</span></a>
+    <nav class="nav" aria-label="Dashboard sections">
+      <button class="nav-link active" data-section="overview">Overview</button>
+      <button class="nav-link" data-section="week">Week</button>
+      <button class="nav-link" data-section="picks">Pick sheet</button>
+      <button class="nav-link" data-section="setup">Setup</button>
+    </nav>
+    <form action="/logout" method="post"><button class="icon-button" title="Sign out" aria-label="Sign out">↗</button></form>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div><p class="eyebrow" id="season-label">NFL SEASON</p><h1>The family race,<br><span>week by week.</span></h1><p class="hero-copy">Live ATS scoring, zero spreadsheet wrangling.</p></div>
+      <div class="hero-chip"><span class="live-dot"></span><span id="week-status">Loading pool…</span></div>
+    </section>
+
+    <section id="overview" class="dashboard-section active">
+      <div class="stat-grid" id="stat-grid"></div>
+      <div class="content-grid">
+        <article class="card leaderboard-card">
+          <div class="card-heading"><div><p class="eyebrow">SEASON TABLE</p><h2>Leaderboard</h2></div><span class="pill" id="week-pill"></span></div>
+          <div id="leaderboard" class="leaderboard skeleton"></div>
+        </article>
+        <article class="card trend-card">
+          <div class="card-heading"><div><p class="eyebrow">MOMENTUM</p><h2>Season trend</h2></div></div>
+          <div id="trend-chart" class="trend-chart skeleton"></div>
+          <div id="trend-legend" class="trend-legend"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="week" class="dashboard-section">
+      <div class="section-heading"><div><p class="eyebrow">CURRENT SLATE</p><h2 id="week-heading">Week</h2></div><a id="share-link" class="button primary" href="#" target="_blank">Open picks form</a></div>
+      <div id="games" class="games-grid"></div>
+    </section>
+
+    <section id="picks" class="dashboard-section">
+      <div class="section-heading"><div><p class="eyebrow">SHARE AT KICKOFF</p><h2>Clean pick sheet</h2><p class="muted">Selections only. Scores and grades stay hidden.</p></div><a class="button secondary" href="/api/picksheet.svg" target="_blank" download>Download image</a></div>
+      <div class="pick-sheet-frame"><img src="/api/picksheet.svg" alt="Current week entrant pick sheet"></div>
+      <article class="card grade-audit-card">
+        <div class="card-heading"><div><p class="eyebrow">CHECK THE MATH</p><h2>Pick-by-pick grading audit</h2></div><span class="pill">W = 1 • L = 0 • P = 0</span></div>
+        <div id="grade-audit" class="grade-audit"></div>
+      </article>
+    </section>
+
+    <section id="setup" class="dashboard-section">
+      <div class="section-heading"><div><p class="eyebrow">AUTOMATION</p><h2>Weekly runbook</h2></div></div>
+      <div class="setup-grid">
+        <article class="card setup-card"><span class="step">01</span><h3>Ingest slate</h3><p>Pull ESPN’s NFL schedule and available odds, then flag any game without a line.</p><span class="status good">Provider ready</span></article>
+        <article class="card setup-card"><span class="step">02</span><h3>Publish at 6 PM</h3><p>The scheduler calculates 6 PM Eastern on the calendar day before the first kickoff.</p><span class="status good" id="publish-time">Scheduled</span></article>
+        <article class="card setup-card"><span class="step">03</span><h3>Collect picks</h3><p>Use the included local form or connect the Google Apps Script bridge to Forms and Sheets.</p><span class="status neutral">Local mode</span></article>
+        <article class="card setup-card"><span class="step">04</span><h3>Grade & roll</h3><p>Final scores grade every ATS choice. Wins are 1 point; losses and pushes are 0.</p><span class="status good">Automatic math</span></article>
+      </div>
+      <article class="card simulation-card">
+        <div><p class="eyebrow">SAFE TEST MODE</p><h2>Mock the first week</h2><p class="muted">Reset a clean 2026 Week 1, enter picks for any or all four players, then apply deterministic final scores to inspect every grade.</p></div>
+        <div class="simulation-actions">
+          <button id="mock-reset" class="button secondary" type="button">1. Reset Mock Week 1</button>
+          <a id="mock-form" class="button primary" href="/p/mock-week-1" target="_blank">2. Enter picks</a>
+          <button id="mock-finish" class="button secondary" type="button">3. Simulate final scores</button>
+        </div>
+        <p id="simulation-message" class="simulation-message" role="status">The simulation never touches Supabase or a production season while local JSON mode is active.</p>
+      </article>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

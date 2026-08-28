@@ -1,0 +1,9 @@
+node_modules/
+config/local.json
+.env
+.env.*
+!.env.example
+.vercel/
+data/pool.json
+*.log
+dev-server*.log

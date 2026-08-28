@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Family Pool • Sign in</title><link rel="stylesheet" href="/styles.css"></head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="brand-mark">FP</div>
+    <p class="eyebrow">PRIVATE FAMILY POOL</p>
+    <h1>Welcome back.</h1>
+    <p class="muted">Enter the family passcode to view picks, standings, and season stats.</p>
+    <form action="/login" method="post" class="login-form">
+      <label for="passcode">Pool passcode</label>
+      <input id="passcode" name="passcode" type="password" autocomplete="current-password" placeholder="Enter passcode" required autofocus>
+      <button class="button primary" type="submit">Open dashboard</button>
+    </form>
+    <p class="login-hint">Prototype passcode: <code>family-demo</code></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "dashboardPasscode": "choose-a-family-passcode",
+  "adminKey": "choose-a-long-random-admin-key",
+  "storageProvider": "supabase",
+  "supabaseUrl": "https://YOUR_PROJECT.supabase.co",
+  "supabaseServiceRoleKey": "YOUR_SERVER_ONLY_SERVICE_ROLE_KEY",
+  "scheduleProvider": "espn",
+  "fallbackProvider": "sample",
+  "scoreRefreshMinutes": 5,
+  "autoRollover": true,
+  "pushPoints": 0,
+  "formProvider": "google",
+  "googleBridgeUrl": "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec",
+  "googleBridgeSecret": "choose-a-long-random-bridge-secret",
+  "smsProvider": "twilio",
+  "twilioAccountSid": "AC...",
+  "twilioAuthToken": "...",
+  "twilioFrom": "+15551234567",
+  "smsTo": "+15557654321"
+}
