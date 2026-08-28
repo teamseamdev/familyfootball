@@ -37,6 +37,7 @@ const submissions = Object.entries(pickPattern).map(([name, choices], playerInde
 export function createSampleState() {
   return {
     version: 1,
+    mode: 'demo',
     activeSeason: 2025,
     activeWeek: 8,
     players: Object.keys(pickPattern),
@@ -69,6 +70,7 @@ export function createSampleState() {
 export function createBlankState(season = new Date().getFullYear()) {
   return {
     version: 1,
+    mode: 'live',
     activeSeason: Number(season),
     activeWeek: 1,
     players: ['Moe', 'John', 'Diane', 'Adam'],

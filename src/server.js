@@ -10,10 +10,8 @@ import { ingestWeek } from './providers.js';
 import { pickSheetSvg } from './picksheet.js';
 import { publishWeek, schedulerTick, startScheduler } from './scheduler.js';
 import { timingSummary } from './timing.js';
-import { GoogleBridge } from './google-bridge.js';
-import { mergeGoogleResponses, sheetPayload } from './google-sync.js';
 import { SupabaseStore } from './supabase-store.js';
-import { createMockWeekOneState, finishMockWeek } from './mock-week.js';
+import { advanceMockWeek, createMockWeekOneState, finishMockWeek } from './mock-week.js';
 import { MemoryStore } from './memory-store.js';
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -99,7 +97,6 @@ export function createPoolServer(overrides = {}) {
         const state = await store.read();
         const week = Object.values(state.weeks).find(item => item.shareToken === shortMatch[1]);
         if (!week) return text(response, 404, 'This pool link is not active.');
-        if (config.formProvider === 'google' && week.googleFormUrl) return text(response, 302, '', 'text/plain', { location: week.googleFormUrl });
         return text(response, 302, '', 'text/plain', { location: `/pick.html?token=${encodeURIComponent(shortMatch[1])}` });
       }
 
@@ -150,7 +147,7 @@ export function createPoolServer(overrides = {}) {
         const week = state.weeks[String(number)];
         if (!week) return json(response, 404, { error: `Week ${number} not found` });
         const shareUrl = week.formUrl || (week.shareToken ? `${config.baseUrl.replace(/\/$/, '')}/p/${week.shareToken}` : '');
-        return json(response, 200, { ...weekSnapshot(week, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, formProvider: config.formProvider });
+        return json(response, 200, { ...weekSnapshot(week, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
       }
       if (request.method === 'GET' && route === '/api/standings') {
         const state = await store.read();
@@ -164,7 +161,7 @@ export function createPoolServer(overrides = {}) {
         return text(response, 200, pickSheetSvg(week, state), 'image/svg+xml', { 'content-disposition': `inline; filename="week-${week.week}-picks.svg"` });
       }
 
-      if (request.method === 'POST' && route === '/api/simulation/reset-week1') {
+      if (request.method === 'POST' && route === '/api/simulation/reset-season') {
         const state = createMockWeekOneState(config.baseUrl);
         await store.write(state);
         return json(response, 201, { ok: true, week: weekSnapshot(state.weeks['1'], config), shareUrl: state.weeks['1'].formUrl });
@@ -172,11 +169,19 @@ export function createPoolServer(overrides = {}) {
 
       if (request.method === 'POST' && route === '/api/simulation/finish') {
         const state = await store.read();
-        const week = state.weeks['1'];
+        const week = state.weeks[String(state.activeWeek)];
         if (!week?.submissions?.length) return json(response, 409, { error: 'Submit at least one player’s picks before simulating results.' });
-        finishMockWeek(state);
+        finishMockWeek(state, state.activeWeek);
         await store.write(state);
-        return json(response, 200, { ok: true, week: weekSnapshot(state.weeks['1'], config), standings: standings(state, config) });
+        return json(response, 200, { ok: true, week: weekSnapshot(week, config), standings: standings(state, config) });
+      }
+
+      if (request.method === 'POST' && route === '/api/simulation/next-week') {
+        const state = await store.read();
+        advanceMockWeek(state, config.baseUrl);
+        await store.write(state);
+        const week = state.weeks[String(state.activeWeek)];
+        return json(response, 201, { ok: true, week: weekSnapshot(week, config), shareUrl: week.formUrl });
       }
 
       if (route.startsWith('/api/admin/') && !admin(request)) return json(response, 403, { error: 'Admin key required' });
@@ -223,20 +228,7 @@ export function createPoolServer(overrides = {}) {
         else if (week.games.some(game => game.status === 'final')) week.status = 'live';
         audit(state, 'results.updated', `Results updated for Week ${week.week}`);
         await store.write(state);
-        if (config.formProvider === 'google') await new GoogleBridge(config).syncWeek(sheetPayload(state, week, config));
         return json(response, 200, weekSnapshot(week, config));
-      }
-
-      if (request.method === 'POST' && route === '/api/admin/sync-google') {
-        const state = await store.read();
-        const week = state.weeks[String(state.activeWeek)];
-        const bridge = new GoogleBridge(config);
-        const result = await bridge.responses(week.season, week.week);
-        const changed = mergeGoogleResponses(state, week, result.responses || []);
-        audit(state, 'google.synced', `${changed} Google Form submissions synced`);
-        await store.write(state);
-        const sheet = await bridge.syncWeek(sheetPayload(state, week, config));
-        return json(response, 200, { ok: true, count: result.responses?.length || 0, changed, sheetUrl: sheet.sheetUrl });
       }
 
       if (request.method === 'POST' && route === '/api/admin/rollover') {

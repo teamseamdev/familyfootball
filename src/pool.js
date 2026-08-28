@@ -61,24 +61,27 @@ export function standings(state, config = {}) {
   }
   const rows = [...names].map(name => {
     const history = [...(state.history?.[name] || [])];
-    let current = 0;
-    let decided = 0;
-    for (const week of Object.values(state.weeks || {})) {
+    const weekly = [];
+    let decided = history.length * 16;
+    const orderedWeeks = Object.values(state.weeks || {}).sort((a, b) => Number(a.week) - Number(b.week));
+    for (const week of orderedWeeks) {
       const submission = week.submissions?.find(item => item.name.toLowerCase() === name.toLowerCase());
       if (!submission) continue;
       const grade = gradeSubmission(week, submission, config.pushPoints ?? 0);
-      current += grade.points;
       decided += grade.decided;
+      if (grade.decided) weekly.push({ week: Number(week.week), points: grade.points });
     }
-    const total = history.reduce((sum, value) => sum + value, 0) + current;
-    const possible = history.length * 16 + decided;
+    const activeScore = weekly.find(item => item.week === Number(state.activeWeek));
+    const current = activeScore?.points || 0;
+    const total = history.reduce((sum, value) => sum + value, 0) + weekly.reduce((sum, item) => sum + item.points, 0);
+    const possible = decided;
     return {
       name,
       total,
       current,
-      weeksPlayed: history.length + (decided ? 1 : 0),
+      weeksPlayed: history.length + weekly.length,
       winRate: possible ? total / possible : 0,
-      trend: [...history, current]
+      trend: [...history, ...weekly.map(item => item.points)]
     };
   });
   rows.sort((a, b) => b.total - a.total || b.current - a.current || a.name.localeCompare(b.name));

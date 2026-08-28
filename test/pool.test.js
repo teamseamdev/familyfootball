@@ -56,3 +56,24 @@ test('full local flow: form, submission, result grading, and standings', async t
   assert.equal((await graded.json()).submissions[0].points, 1);
   assert.equal(standings(store.read(), { pushPoints: 0 })[0].total, 1);
 });
+
+test('full multi-week test flow: reset, picks, grade, and advance', async t => {
+  const app = createPoolServer({ storageProvider: 'memory', port: 0, baseUrl: 'http://127.0.0.1', dashboardPasscode: '', adminKey: 'test-admin' });
+  const address = await app.start(0);
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const reset = await fetch(`${base}/api/simulation/reset-season`, { method: 'POST' });
+  assert.equal(reset.status, 201);
+  const resetBody = await reset.json();
+  const week = resetBody.week;
+  const picks = Object.fromEntries(week.games.map(game => [game.id, game.away]));
+  const submitted = await fetch(`${base}/api/public/week/mock-week-1/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Moe', picks }) });
+  assert.equal(submitted.status, 201);
+  const finished = await fetch(`${base}/api/simulation/finish`, { method: 'POST' });
+  assert.equal(finished.status, 200);
+  const advanced = await fetch(`${base}/api/simulation/next-week`, { method: 'POST' });
+  assert.equal(advanced.status, 201);
+  const next = await advanced.json();
+  assert.equal(next.week.week, 2);
+  assert.match(next.shareUrl, /mock-week-2$/);
+});

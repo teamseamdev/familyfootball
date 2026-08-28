@@ -19,55 +19,80 @@ const MOCK_GAMES = [
   ['401872931','2026-09-15T00:15:00.000Z','DEN','KC','Denver Broncos','Kansas City Chiefs',-3]
 ];
 
-export function mockWeekOneGames() {
-  return MOCK_GAMES.map(([id, kickoff, away, home, awayName, homeName, homeSpread]) => ({
-    id, kickoff, away, home, awayName, homeName, homeSpread,
+export function mockGamesForWeek(weekNumber = 1) {
+  const week = Number(weekNumber);
+  const shift = (week - 1) * 7 * 86400000;
+  return MOCK_GAMES.map(([_id, kickoff, away, home, awayName, homeName, homeSpread], index) => ({
+    id: `mock-2026-w${week}-${away.toLowerCase()}-${home.toLowerCase()}`,
+    kickoff: new Date(new Date(kickoff).getTime() + shift).toISOString(),
+    away, home, awayName, homeName,
+    homeSpread: index % 3 === 0 && week % 2 === 0 ? -Number(homeSpread) : homeSpread,
     status: 'scheduled', awayScore: null, homeScore: null, source: 'mock-espn'
   }));
 }
 
+export const mockWeekOneGames = () => mockGamesForWeek(1);
+
+export function createMockWeek(weekNumber, baseUrl = 'http://localhost:4173') {
+  const week = Number(weekNumber);
+  const games = mockGamesForWeek(week);
+  const now = new Date().toISOString();
+  return {
+    season: 2026,
+    week,
+    label: `Test Week ${week}`,
+    status: 'open',
+    source: 'mock',
+    spreadCapturedAt: now,
+    shareToken: `mock-week-${week}`,
+    formUrl: `${baseUrl.replace(/\/$/, '')}/p/mock-week-${week}`,
+    publishedAt: now,
+    picksLockedAt: games[0].kickoff,
+    games,
+    submissions: []
+  };
+}
+
 export function createMockWeekOneState(baseUrl = 'http://localhost:4173') {
-  const games = mockWeekOneGames();
   const now = new Date().toISOString();
   return {
     version: 1,
+    mode: 'test',
     activeSeason: 2026,
     activeWeek: 1,
     players: ['Moe', 'John', 'Diane', 'Adam'],
     weeks: {
-      '1': {
-        season: 2026,
-        week: 1,
-        label: 'Mock Week 1',
-        status: 'open',
-        source: 'mock',
-        spreadCapturedAt: now,
-        shareToken: 'mock-week-1',
-        formUrl: `${baseUrl.replace(/\/$/, '')}/p/mock-week-1`,
-        googleFormUrl: '',
-        publishedAt: now,
-        picksLockedAt: games[0].kickoff,
-        games,
-        submissions: []
-      }
+      '1': createMockWeek(1, baseUrl)
     },
     history: { Moe: [], John: [], Diane: [], Adam: [] },
     audit: [{ at: now, type: 'simulation.started', detail: 'Clean 2026 Mock Week 1 created' }]
   };
 }
 
-export function finishMockWeek(state) {
-  const week = state.weeks['1'];
-  if (!week || week.source !== 'mock') throw new Error('Start Mock Week 1 before simulating results.');
+export function finishMockWeek(state, weekNumber = state.activeWeek) {
+  const week = state.weeks[String(weekNumber)];
+  if (!week || week.source !== 'mock') throw new Error('Start the test season before simulating results.');
   week.games.forEach((game, index) => {
     const awayScore = 20;
     const threshold = -Number(game.homeSpread);
-    const homeMargin = index === 4 ? threshold : index % 2 === 0 ? Math.ceil(threshold + 3) : Math.floor(threshold - 3);
+    const pushIndex = (Number(week.week) + 3) % week.games.length;
+    const homeMargin = index === pushIndex ? threshold : (index + Number(week.week)) % 2 === 0 ? Math.ceil(threshold + 3) : Math.floor(threshold - 3);
     game.awayScore = awayScore;
     game.homeScore = awayScore + homeMargin;
     game.status = 'final';
   });
   week.status = 'final';
-  audit(state, 'simulation.finished', `Mock results applied to ${week.games.length} games`);
+  audit(state, 'simulation.finished', `Test Week ${week.week}: mock results applied to ${week.games.length} games`);
+  return state;
+}
+
+export function advanceMockWeek(state, baseUrl = 'http://localhost:4173') {
+  const current = state.weeks[String(state.activeWeek)];
+  if (!current || current.source !== 'mock') throw new Error('Start the test season first.');
+  if (current.status !== 'final') throw new Error(`Simulate Test Week ${current.week} before advancing.`);
+  const next = Number(current.week) + 1;
+  state.activeWeek = next;
+  state.weeks[String(next)] ||= createMockWeek(next, baseUrl);
+  audit(state, 'simulation.advanced', `Test Week ${next} opened`);
   return state;
 }

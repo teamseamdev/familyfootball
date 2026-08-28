@@ -15,7 +15,10 @@ async function load() {
 
 function render(week, season) {
   const environmentBanner = $('#environment-banner');
-  if (week.storageMode === 'memory') {
+  if (week.poolMode === 'test') {
+    environmentBanner.hidden = false;
+    environmentBanner.innerHTML = '<strong>Test season active</strong><span>These picks are safely stored in Supabase, but they are not the live family season.</span>';
+  } else if (week.storageMode === 'memory') {
     environmentBanner.hidden = false;
     environmentBanner.innerHTML = '<strong>Live preview mode</strong><span>Picks may reset between visits until Supabase storage is connected.</span>';
   }
@@ -24,12 +27,10 @@ function render(week, season) {
   $('#week-pill').textContent = `Through Week ${season.activeWeek}`;
   $('#week-heading').textContent = `Week ${week.week} matchups`;
   $('#share-link').href = week.shareUrl || '#';
-  $('#form-mode').textContent = week.formProvider === 'google' ? 'Google Form + Sheet' : 'Local mode';
-  const googleSheetLink = $('#google-sheet-link');
-  if (week.googleSheetUrl) {
-    googleSheetLink.href = week.googleSheetUrl;
-    googleSheetLink.hidden = false;
-  }
+  $('#mock-form').href = week.shareUrl || '#';
+  $('#test-heading').textContent = week.poolMode === 'test' ? `Test Week ${week.week}` : 'Test the season flow';
+  $('#mock-finish').disabled = week.poolMode !== 'test' || week.status === 'final' || !week.submissions.length;
+  $('#mock-next').disabled = week.poolMode !== 'test' || week.status !== 'final';
   $('#publish-time').textContent = week.timing.publishAt ? localDate(week.timing.publishAt, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Waiting for slate';
 
   const leader = season.standings[0];
@@ -114,8 +115,11 @@ async function simulationAction(path, workingMessage) {
   location.reload();
 }
 
-$('#mock-reset').addEventListener('click', () => simulationAction('/api/simulation/reset-week1', 'Preparing a clean Mock Week 1…'));
+$('#mock-reset').addEventListener('click', () => {
+  if (confirm('Start the test season over? This clears every existing test week and its picks.')) simulationAction('/api/simulation/reset-season', 'Preparing a clean Test Week 1…');
+});
 $('#mock-finish').addEventListener('click', () => simulationAction('/api/simulation/finish', 'Applying final scores and grading every pick…'));
+$('#mock-next').addEventListener('click', () => simulationAction('/api/simulation/next-week', 'Opening the next test week while keeping the standings…'));
 
 document.querySelectorAll('.nav-link').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('.nav-link,.dashboard-section').forEach(item => item.classList.remove('active'));

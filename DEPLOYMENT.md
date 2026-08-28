@@ -61,7 +61,6 @@ The included `.gitignore` excludes local picks, local secrets, and Vercel metada
 | `POOL_STORAGE_PROVIDER` | `supabase` |
 | `POOL_SCHEDULE_PROVIDER` | `espn` |
 | `POOL_FALLBACK_PROVIDER` | Leave blank in production |
-| `POOL_FORM_PROVIDER` | `local` until the Google bridge is deployed; then `google` |
 | `POOL_SMS_PROVIDER` | `console` until SMS is configured |
 | `SUPABASE_URL` | Supabase Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key; server only |
@@ -105,10 +104,6 @@ The scheduler will refresh the ESPN lines and publish the short picks link at 6 
 $body = @{ week = 1; notify = $false } | ConvertTo-Json
 Invoke-RestMethod -Uri 'https://YOUR-PROJECT.vercel.app/api/admin/publish' -Method Post -Headers $headers -ContentType 'application/json' -Body $body
 ```
-
-## Enable the Google Form + Sheet workflow
-
-Complete `GOOGLE_SETUP.md` after the Vercel/Supabase app is working. The app will continue to use the local form until `POOL_FORM_PROVIDER` is changed to `google`, so Google setup can be completed without interrupting the live prototype.
 
 ## Free-tier caveats
 
