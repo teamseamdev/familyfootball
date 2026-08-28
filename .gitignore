@@ -4,6 +4,7 @@ config/local.json
 .env.*
 !.env.example
 .vercel/
+supabase/.temp/
 data/pool.json
 *.log
 dev-server*.log
