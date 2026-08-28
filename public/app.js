@@ -24,6 +24,12 @@ function render(week, season) {
   $('#week-pill').textContent = `Through Week ${season.activeWeek}`;
   $('#week-heading').textContent = `Week ${week.week} matchups`;
   $('#share-link').href = week.shareUrl || '#';
+  $('#form-mode').textContent = week.formProvider === 'google' ? 'Google Form + Sheet' : 'Local mode';
+  const googleSheetLink = $('#google-sheet-link');
+  if (week.googleSheetUrl) {
+    googleSheetLink.href = week.googleSheetUrl;
+    googleSheetLink.hidden = false;
+  }
   $('#publish-time').textContent = week.timing.publishAt ? localDate(week.timing.publishAt, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Waiting for slate';
 
   const leader = season.standings[0];

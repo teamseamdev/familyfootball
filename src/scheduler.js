@@ -3,6 +3,7 @@ import { timingSummary } from './timing.js';
 import { audit } from './store.js';
 import { weekSnapshot } from './pool.js';
 import { GoogleBridge } from './google-bridge.js';
+import { mergeGoogleResponses, sheetPayload } from './google-sync.js';
 import { sendPoolLink } from './notifier.js';
 import { fetchEspnWeek, ingestWeek } from './providers.js';
 
@@ -28,6 +29,7 @@ export async function publishWeek({ store, config, weekNumber, notify = true }) 
     const bridge = new GoogleBridge(config);
     const result = await bridge.upsertForm(weekSnapshot(week, config));
     googleFormUrl = result.responderUrl;
+    week.googleSheetUrl = result.sheetUrl || week.googleSheetUrl || '';
   }
   week.formUrl = shortUrl;
   week.googleFormUrl = googleFormUrl;
@@ -45,6 +47,23 @@ export async function schedulerTick({ store, config, now = new Date() }) {
   const state = await store.read();
   const week = state.weeks[String(state.activeWeek)];
   if (!week || !week.games?.length) return { action: 'none' };
+  let googleResponsesChanged = 0;
+  let googleWarning = '';
+  let bridge;
+  if (config.formProvider === 'google' && week.publishedAt) {
+    bridge = new GoogleBridge(config);
+    try {
+      const result = await bridge.responses(week.season, week.week);
+      googleResponsesChanged = mergeGoogleResponses(state, week, result.responses || []);
+      if (googleResponsesChanged) {
+        audit(state, 'google.synced', `${googleResponsesChanged} Google Form submissions synced for Week ${week.week}`);
+        await store.write(state);
+        await bridge.syncWeek(sheetPayload(state, week, config));
+      }
+    } catch (error) {
+      googleWarning = `Google sync: ${error.message}`;
+    }
+  }
   if (week.publishedAt && week.source === 'espn' && week.status !== 'final' && now >= new Date(week.picksLockedAt || week.games[0].kickoff)) {
     const lastRefresh = week.lastScoreRefreshAt ? new Date(week.lastScoreRefreshAt) : new Date(0);
     if (now - lastRefresh >= Number(config.scoreRefreshMinutes || 5) * 60_000) {
@@ -63,6 +82,13 @@ export async function schedulerTick({ store, config, now = new Date() }) {
       week.status = week.games.every(game => game.status === 'final') ? 'final' : week.games.some(game => game.status === 'final') ? 'live' : week.status;
       if (changed) audit(state, 'scores.refreshed', `${changed} games changed for Week ${week.week}`);
       await store.write(state);
+      if (bridge) {
+        try {
+          await bridge.syncWeek(sheetPayload(state, week, config));
+        } catch (error) {
+          googleWarning = `Google Sheet update: ${error.message}`;
+        }
+      }
       if (week.status === 'final' && config.autoRollover) {
         const nextWeek = Number(week.week) + 1;
         if (!state.weeks[String(nextWeek)]) {
@@ -74,11 +100,11 @@ export async function schedulerTick({ store, config, now = new Date() }) {
           return { action: 'rolled-over', week: nextWeek, warnings: result.warnings || [] };
         }
       }
-      return { action: 'scores-refreshed', changed };
+      return { action: 'scores-refreshed', changed, googleResponsesChanged, googleWarning };
     }
-    return { action: 'waiting-for-score-refresh' };
+    return { action: 'waiting-for-score-refresh', googleResponsesChanged, googleWarning };
   }
-  if (week.publishedAt) return { action: 'none' };
+  if (week.publishedAt) return { action: googleResponsesChanged ? 'google-synced' : 'none', googleResponsesChanged, googleWarning };
   const timing = timingSummary(week, config);
   if (timing.publishAt && now >= new Date(timing.publishAt)) {
     const result = await publishWeek({ store, config, weekNumber: state.activeWeek, notify: true });

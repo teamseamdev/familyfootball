@@ -2,7 +2,7 @@
 
 This is a working, dependency-free Node.js prototype for the annual family against-the-spread pool. It runs locally with sample data, and its live integrations are isolated behind small adapters so the pool math and dashboard can be tested before any paid account or Google credentials are added.
 
-For the free production architecture using GitHub, Vercel, and Supabase, see `DEPLOYMENT.md`. The production path uses the custom mobile pick form and does not require the old Google workbook.
+For the free production architecture using GitHub, Vercel, and Supabase, see `DEPLOYMENT.md`. For the familiar Google Form and original-style weekly Sheet workflow, see `GOOGLE_SETUP.md`.
 
 ## What works now
 
@@ -14,7 +14,7 @@ For the free production architecture using GitHub, Vercel, and Supabase, see `DE
 - A fixed four-person selector for Moe, John, Diane, and Adam, preventing duplicate name spellings.
 - Local JSON response storage as the no-credential substitute for Google Sheets.
 - Optional Supabase persistence for Vercel deployments.
-- A Google Apps Script bridge that creates/updates a Google Form, links it to a Google Sheet, and syncs Form responses back into the dashboard.
+- A two-way Google Apps Script bridge that creates/updates the weekly Google Form and original-style `WK#` Sheet, mirrors Form responses into the dashboard, and writes grades/totals back to Google Sheets.
 - Picks lock automatically at the first kickoff.
 - ATS grading for completed games: win = 1, loss = 0, push = 0.
 - Automatic ESPN score polling every five minutes after kickoff, with totals recalculated immediately.
@@ -56,21 +56,7 @@ The server must stay running for its built-in scheduler to fire. A hosted deploy
 
 ## Google Forms and Sheets setup
 
-The supplied bridge is in `integrations/google-apps-script/Code.gs`.
-
-1. Create or choose the destination Google Sheet.
-2. Open `script.google.com`, create a project, and paste in `Code.gs`.
-3. In **Project settings → Script properties**, add:
-   - `BRIDGE_SECRET`: a long random secret.
-   - `SPREADSHEET_ID`: the ID between `/d/` and `/edit` in the destination Sheet URL.
-4. Deploy the script as a Web app that executes as you. For this simple secret-based prototype, the endpoint must accept calls from the server; use the narrowest access option that still lets the Node server reach it. If that requires anonymous web access, protect it with a strong `BRIDGE_SECRET` and do not share the URL.
-5. Copy `config/local.example.json` to `config/local.json` and set:
-   - `formProvider` to `google`
-   - `googleBridgeUrl` to the deployed Web app URL
-   - `googleBridgeSecret` to the same secret
-   - `scheduleProvider` to `espn`
-
-The bridge creates one form per season/week, replaces its questions whenever the slate is republished, attaches responses to the configured Sheet, and exposes a secret-protected response sync endpoint.
+Follow `GOOGLE_SETUP.md`. The supplied Apps Script bridge preserves the screenshot's C:E game area, G/I/K/M pick columns, H/J/L/N result columns, weekly totals, and overall totals. It also keeps Google's raw Form Responses tab as another backup.
 
 ## SMS setup
 

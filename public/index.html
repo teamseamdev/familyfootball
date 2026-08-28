@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Family Football Pool</title><link rel="stylesheet" href="/styles.css">
+  <style>.section-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.section-actions [hidden]{display:none!important}</style>
 </head>
 <body>
   <header class="topbar">
@@ -44,7 +45,7 @@
     </section>
 
     <section id="picks" class="dashboard-section">
-      <div class="section-heading"><div><p class="eyebrow">SHARE AT KICKOFF</p><h2>Spreadsheet pick sheet</h2><p class="muted">A familiar weekly sheet for sharing. Results and grades stay blank.</p></div><a class="button secondary" href="/api/picksheet.svg" target="_blank" download>Download sheet image</a></div>
+      <div class="section-heading"><div><p class="eyebrow">SHARE AT KICKOFF</p><h2>Spreadsheet pick sheet</h2><p class="muted">A familiar weekly sheet for sharing. Results and grades stay blank.</p></div><div class="section-actions"><a id="google-sheet-link" class="button secondary" href="#" target="_blank" hidden>Open Google Sheet</a><a class="button secondary" href="/api/picksheet.svg" target="_blank" download>Download sheet image</a></div></div>
       <div class="pick-sheet-frame"><img src="/api/picksheet.svg" alt="Current week entrant pick sheet"></div>
       <article class="card grade-audit-card">
         <div class="card-heading"><div><p class="eyebrow">CHECK THE MATH</p><h2>Pick-by-pick grading audit</h2></div><span class="pill">W = 1 • L = 0 • P = 0</span></div>
@@ -57,7 +58,7 @@
       <div class="setup-grid">
         <article class="card setup-card"><span class="step">01</span><h3>Ingest slate</h3><p>Pull ESPN’s NFL schedule and available odds, then flag any game without a line.</p><span class="status good">Provider ready</span></article>
         <article class="card setup-card"><span class="step">02</span><h3>Publish at 6 PM</h3><p>The scheduler calculates 6 PM Eastern on the calendar day before the first kickoff.</p><span class="status good" id="publish-time">Scheduled</span></article>
-        <article class="card setup-card"><span class="step">03</span><h3>Collect picks</h3><p>Use the included local form or connect the Google Apps Script bridge to Forms and Sheets.</p><span class="status neutral">Local mode</span></article>
+        <article class="card setup-card"><span class="step">03</span><h3>Collect picks</h3><p>Google Forms can feed the familiar weekly Sheet and mirror every entry into this app.</p><span class="status neutral" id="form-mode">Local mode</span></article>
         <article class="card setup-card"><span class="step">04</span><h3>Grade & roll</h3><p>Final scores grade every ATS choice. Wins are 1 point; losses and pushes are 0.</p><span class="status good">Automatic math</span></article>
       </div>
       <article class="card simulation-card">

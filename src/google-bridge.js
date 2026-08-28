@@ -22,13 +22,25 @@ export class GoogleBridge {
     return this.call('upsertForm', {
       season: week.season,
       week: week.week,
-      title: `NFL Pool — Week ${week.week}`,
+      title: `Week ${week.week} Football Bets`,
       description: `Spreads captured ${week.spreadCapturedAt}. Choose the team that will cover the listed spread.`,
-      games: week.games.map(game => ({ id: game.id, title: `${game.away} @ ${game.home}`, choices: game.choices }))
+      games: week.games.map(game => ({
+        id: game.id,
+        title: `${game.away} @ ${game.home}`,
+        away: game.away,
+        home: game.home,
+        homeSpread: game.homeSpread,
+        kickoff: game.kickoff,
+        choices: game.choices
+      }))
     });
   }
 
   responses(season, week) {
     return this.call('getResponses', { season, week });
+  }
+
+  syncWeek(week) {
+    return this.call('syncWeek', week);
   }
 }

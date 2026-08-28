@@ -11,6 +11,7 @@ import { pickSheetSvg } from './picksheet.js';
 import { publishWeek, schedulerTick, startScheduler } from './scheduler.js';
 import { timingSummary } from './timing.js';
 import { GoogleBridge } from './google-bridge.js';
+import { mergeGoogleResponses, sheetPayload } from './google-sync.js';
 import { SupabaseStore } from './supabase-store.js';
 import { createMockWeekOneState, finishMockWeek } from './mock-week.js';
 import { MemoryStore } from './memory-store.js';
@@ -149,7 +150,7 @@ export function createPoolServer(overrides = {}) {
         const week = state.weeks[String(number)];
         if (!week) return json(response, 404, { error: `Week ${number} not found` });
         const shareUrl = week.formUrl || (week.shareToken ? `${config.baseUrl.replace(/\/$/, '')}/p/${week.shareToken}` : '');
-        return json(response, 200, { ...weekSnapshot(week, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider });
+        return json(response, 200, { ...weekSnapshot(week, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, formProvider: config.formProvider });
       }
       if (request.method === 'GET' && route === '/api/standings') {
         const state = await store.read();
@@ -222,21 +223,20 @@ export function createPoolServer(overrides = {}) {
         else if (week.games.some(game => game.status === 'final')) week.status = 'live';
         audit(state, 'results.updated', `Results updated for Week ${week.week}`);
         await store.write(state);
+        if (config.formProvider === 'google') await new GoogleBridge(config).syncWeek(sheetPayload(state, week, config));
         return json(response, 200, weekSnapshot(week, config));
       }
 
       if (request.method === 'POST' && route === '/api/admin/sync-google') {
         const state = await store.read();
         const week = state.weeks[String(state.activeWeek)];
-        const result = await new GoogleBridge(config).responses(week.season, week.week);
-        for (const incoming of result.responses || []) {
-          const submission = { id: incoming.id || crypto.randomUUID(), name: incoming.name, submittedAt: incoming.submittedAt, picks: incoming.picks };
-          const existing = week.submissions.findIndex(item => item.name.toLowerCase() === submission.name.toLowerCase());
-          if (existing >= 0) week.submissions[existing] = submission; else week.submissions.push(submission);
-        }
-        audit(state, 'google.synced', `${result.responses?.length || 0} responses synced`);
+        const bridge = new GoogleBridge(config);
+        const result = await bridge.responses(week.season, week.week);
+        const changed = mergeGoogleResponses(state, week, result.responses || []);
+        audit(state, 'google.synced', `${changed} Google Form submissions synced`);
         await store.write(state);
-        return json(response, 200, { ok: true, count: result.responses?.length || 0 });
+        const sheet = await bridge.syncWeek(sheetPayload(state, week, config));
+        return json(response, 200, { ok: true, count: result.responses?.length || 0, changed, sheetUrl: sheet.sheetUrl });
       }
 
       if (request.method === 'POST' && route === '/api/admin/rollover') {
