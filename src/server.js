@@ -283,7 +283,14 @@ export function createPoolServer(overrides = {}) {
   };
 }
 
+let defaultApp;
+
+export default function handler(request, response) {
+  defaultApp ||= createPoolServer();
+  return defaultApp.handler(request, response);
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const app = createPoolServer();
-  app.start().then(() => console.log(`Family NFL Pool running at ${app.config.baseUrl}`));
+  defaultApp = createPoolServer();
+  defaultApp.start().then(() => console.log(`Family NFL Pool running at ${defaultApp.config.baseUrl}`));
 }
