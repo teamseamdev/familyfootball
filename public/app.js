@@ -14,6 +14,11 @@ async function load() {
 }
 
 function render(week, season) {
+  const environmentBanner = $('#environment-banner');
+  if (week.storageMode === 'memory') {
+    environmentBanner.hidden = false;
+    environmentBanner.innerHTML = '<strong>Live preview mode</strong><span>Picks may reset between visits until Supabase storage is connected.</span>';
+  }
   $('#season-label').textContent = `${season.season} NFL SEASON • WEEK ${season.activeWeek}`;
   $('#week-status').textContent = `${week.status.toUpperCase()} • ${week.submissions.length} entries`;
   $('#week-pill').textContent = `Through Week ${season.activeWeek}`;

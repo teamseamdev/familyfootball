@@ -13,6 +13,7 @@ import { timingSummary } from './timing.js';
 import { GoogleBridge } from './google-bridge.js';
 import { SupabaseStore } from './supabase-store.js';
 import { createMockWeekOneState, finishMockWeek } from './mock-week.js';
+import { MemoryStore } from './memory-store.js';
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -66,7 +67,13 @@ function publicWeek(week, config, players = []) {
 
 export function createPoolServer(overrides = {}) {
   const config = loadConfig(overrides);
-  const store = overrides.store || (config.storageProvider === 'supabase' ? new SupabaseStore(config) : new JsonStore(config.dataFile));
+  const store = overrides.store || (
+    config.storageProvider === 'supabase'
+      ? new SupabaseStore(config)
+      : config.storageProvider === 'memory'
+        ? new MemoryStore(createMockWeekOneState(config.baseUrl))
+        : new JsonStore(config.dataFile)
+  );
   const authenticated = request => !config.dashboardPasscode || cookies(request).pool_session === sessionValue(config.dashboardPasscode);
   const admin = request => request.headers['x-admin-key'] === config.adminKey;
 
@@ -142,7 +149,7 @@ export function createPoolServer(overrides = {}) {
         const week = state.weeks[String(number)];
         if (!week) return json(response, 404, { error: `Week ${number} not found` });
         const shareUrl = week.formUrl || (week.shareToken ? `${config.baseUrl.replace(/\/$/, '')}/p/${week.shareToken}` : '');
-        return json(response, 200, { ...weekSnapshot(week, config), timing: timingSummary(week, config), shareUrl });
+        return json(response, 200, { ...weekSnapshot(week, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider });
       }
       if (request.method === 'GET' && route === '/api/standings') {
         const state = await store.read();

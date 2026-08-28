@@ -9,6 +9,8 @@
 
 This remains event-driven rather than keeping a paid server running continuously. Supabase wakes the Vercel API every five minutes; most checks immediately return without changing anything.
 
+Before Supabase is connected, Vercel may be deployed with `POOL_STORAGE_PROVIDER=memory` for a clearly labeled visual preview. That mode is intentionally temporary and does not guarantee that submitted picks survive a cold start.
+
 Vercel Hobby cron is not used because it only supports daily jobs and may run up to 59 minutes late. Relevant official documentation:
 
 - https://vercel.com/docs/cron-jobs/usage-and-pricing
