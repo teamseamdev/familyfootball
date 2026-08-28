@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SupabaseStore } from '../src/supabase-store.js';
+import { normalizeSupabaseUrl, SupabaseStore } from '../src/supabase-store.js';
+
+test('Supabase project URLs work with or without the REST suffix', () => {
+  assert.equal(normalizeSupabaseUrl('https://example.supabase.co'), 'https://example.supabase.co');
+  assert.equal(normalizeSupabaseUrl('https://example.supabase.co/rest/v1/'), 'https://example.supabase.co');
+});
 
 test('Supabase storage seeds once and persists the state document', async () => {
   let saved;

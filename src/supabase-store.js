@@ -1,9 +1,16 @@
 import { createBlankState } from './sample-data.js';
 
+export function normalizeSupabaseUrl(value) {
+  const url = new URL(value);
+  const restPath = url.pathname.indexOf('/rest/v1');
+  if (restPath !== -1) url.pathname = url.pathname.slice(0, restPath);
+  return url.toString().replace(/\/$/, '');
+}
+
 export class SupabaseStore {
   constructor({ supabaseUrl, supabaseServiceRoleKey, seedState = createBlankState, fetchImpl = fetch }) {
     if (!supabaseUrl || !supabaseServiceRoleKey) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for Supabase storage');
-    this.url = supabaseUrl.replace(/\/$/, '');
+    this.url = normalizeSupabaseUrl(supabaseUrl);
     this.key = supabaseServiceRoleKey;
     this.seedState = seedState;
     this.fetch = fetchImpl;
