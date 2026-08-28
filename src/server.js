@@ -160,7 +160,7 @@ export function createPoolServer(overrides = {}) {
         const state = await store.read();
         const week = state.weeks[String(url.searchParams.get('week') || state.activeWeek)];
         if (!week) return text(response, 404, 'Week not found');
-        return text(response, 200, pickSheetSvg(week), 'image/svg+xml', { 'content-disposition': `inline; filename="week-${week.week}-picks.svg"` });
+        return text(response, 200, pickSheetSvg(week, state), 'image/svg+xml', { 'content-disposition': `inline; filename="week-${week.week}-picks.svg"` });
       }
 
       if (request.method === 'POST' && route === '/api/simulation/reset-week1') {

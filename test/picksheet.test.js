@@ -10,9 +10,11 @@ test('share image uses a spreadsheet grid with all four player columns and blank
     name: 'Moe',
     picks: Object.fromEntries(week.games.map(game => [game.id, game.away]))
   });
-  const svg = pickSheetSvg(week);
+  const svg = pickSheetSvg(week, state);
   for (const player of ['Moe', 'John', 'Diane', 'Adam']) assert.match(svg, new RegExp(`>${player}<`));
-  assert.match(svg, />Result</);
-  assert.match(svg, /Blank cells mean picks have not been submitted/);
+  assert.match(svg, /Visitor vs Home/);
+  assert.match(svg, /TOTAL WEEKLY WINS/);
+  assert.match(svg, /TOTAL OVERALL WINS/);
+  assert.match(svg, /Win\?/);
   assert.doesNotMatch(svg, /awayScore|homeScore|points|grade/i);
 });
