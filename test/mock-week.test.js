@@ -38,3 +38,15 @@ test('multi-week test season keeps each week and produces accurate standings tre
   assert.equal(overallTotalsThroughWeek(state, 1, { pushPoints: 0 }).Moe, moe.trend[0]);
   assert.equal(overallTotalsThroughWeek(state, 2, { pushPoints: 0 }).Moe, moe.total);
 });
+
+test('simulated NFL scores are always whole numbers, including designated pushes', () => {
+  const state = createMockWeekOneState();
+  for (let weekNumber = 1; weekNumber <= 6; weekNumber++) {
+    finishMockWeek(state);
+    const week = state.weeks[String(weekNumber)];
+    assert.ok(week.games.every(game => Number.isInteger(game.awayScore) && Number.isInteger(game.homeScore)));
+    const picks = { id: `week-${weekNumber}`, name: 'Moe', submittedAt: new Date().toISOString(), picks: Object.fromEntries(week.games.map(game => [game.id, game.home])) };
+    assert.ok(Object.values(gradeSubmission(week, picks, 0).grades).some(grade => grade.result === 'push'));
+    if (weekNumber < 6) advanceMockWeek(state);
+  }
+});

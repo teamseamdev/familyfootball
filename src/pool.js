@@ -19,6 +19,7 @@ export function chronological(games) {
 
 export function gameAtsOutcome(game) {
   if (game.status !== 'final' || game.awayScore == null || game.homeScore == null) return { result: 'pending', team: null };
+  if (!Number.isInteger(Number(game.awayScore)) || !Number.isInteger(Number(game.homeScore))) return { result: 'invalid', team: null };
   const homeMargin = Number(game.homeScore) - Number(game.awayScore);
   const coverThreshold = -Number(game.homeSpread);
   if (homeMargin === coverThreshold) return { result: 'push', team: null };
@@ -28,6 +29,7 @@ export function gameAtsOutcome(game) {
 export function gradePick(game, team, pushPoints = 0) {
   const outcome = gameAtsOutcome(game);
   if (outcome.result === 'pending') return { result: 'pending', points: null };
+  if (outcome.result === 'invalid') return { result: 'invalid', points: 0 };
   if (team !== game.away && team !== game.home) return { result: 'invalid', points: 0 };
   if (outcome.result === 'push') return { result: 'push', points: Number(pushPoints) };
   return outcome.team === team ? { result: 'win', points: 1 } : { result: 'loss', points: 0 };

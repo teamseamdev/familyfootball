@@ -189,6 +189,8 @@ export function createPoolServer(overrides = {}) {
         const state = await store.read();
         const week = state.weeks[String(input.week || state.activeWeek)];
         if (!week) return json(response, 404, { error: 'Week not found' });
+        const invalidScore = (input.games || []).find(update => (update.awayScore != null && !Number.isInteger(Number(update.awayScore))) || (update.homeScore != null && !Number.isInteger(Number(update.homeScore))));
+        if (invalidScore) return json(response, 400, { error: 'NFL scores must be whole numbers. Fractional values are only valid for spreads.' });
         for (const update of input.games || []) {
           const game = week.games.find(item => item.id === update.id);
           if (!game) continue;

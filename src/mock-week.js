@@ -72,10 +72,12 @@ export function createMockWeekOneState(baseUrl = 'http://localhost:4173') {
 export function finishMockWeek(state, weekNumber = state.activeWeek) {
   const week = state.weeks[String(weekNumber)];
   if (!week || week.source !== 'mock') throw new Error('Start the test season before simulating results.');
+  const preferredPushIndex = (Number(week.week) + 3) % week.games.length;
+  const wholeSpreadIndexes = week.games.map((game, index) => Number.isInteger(Number(game.homeSpread)) ? index : -1).filter(index => index >= 0);
+  const pushIndex = wholeSpreadIndexes.find(index => index >= preferredPushIndex) ?? wholeSpreadIndexes[0];
   week.games.forEach((game, index) => {
     const awayScore = 20;
     const threshold = -Number(game.homeSpread);
-    const pushIndex = (Number(week.week) + 3) % week.games.length;
     const homeMargin = index === pushIndex ? threshold : (index + Number(week.week)) % 2 === 0 ? Math.ceil(threshold + 3) : Math.floor(threshold - 3);
     game.awayScore = awayScore;
     game.homeScore = awayScore + homeMargin;

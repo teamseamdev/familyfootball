@@ -49,12 +49,15 @@ export async function fetchEspnWeek(season, week, fetchImpl = fetch) {
   const data = await response.json();
   const games = (data.events || []).map(normalizeEspnEvent).filter(Boolean);
   if (!games.length) throw new Error(`ESPN returned no NFL games for ${season} week ${week}`);
+  const invalidScores = games.filter(game => game.status === 'final' && (!Number.isInteger(game.awayScore) || !Number.isInteger(game.homeScore)));
+  if (invalidScores.length) throw new Error(`ESPN returned a non-integer NFL score for ${invalidScores.map(game => `${game.away} @ ${game.home}`).join(', ')}`);
   return { source: 'espn', capturedAt: new Date().toISOString(), games };
 }
 
 export async function ingestWeek({ season, week, provider = 'sample', fallbackProvider = '', manualGames = [], fetchImpl = fetch }) {
   if (provider === 'manual') {
     if (!Array.isArray(manualGames) || !manualGames.length) throw new Error('Manual provider requires a non-empty games array');
+    if (manualGames.some(game => (game.awayScore != null && !Number.isInteger(Number(game.awayScore))) || (game.homeScore != null && !Number.isInteger(Number(game.homeScore))))) throw new Error('NFL scores must be whole numbers');
     return { source: 'manual', capturedAt: new Date().toISOString(), games: manualGames, warnings: [] };
   }
   if (provider === 'espn') {

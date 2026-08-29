@@ -60,6 +60,10 @@ test('full local flow: form, submission, result grading, and standings', async t
   assert.equal(duplicate.status, 409);
   assert.match((await duplicate.json()).error, /already submitted/i);
 
+  const fractional = await fetch(`${base}/api/admin/results`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ week: 1, games: [{ id: 'g1', awayScore: 20, homeScore: 23.5, status: 'final' }] }) });
+  assert.equal(fractional.status, 400);
+  assert.match((await fractional.json()).error, /whole numbers/i);
+
   const graded = await fetch(`${base}/api/admin/results`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ week: 1, games: [{ id: 'g1', awayScore: 20, homeScore: 27, status: 'final' }] }) });
   assert.equal(graded.status, 200);
   assert.equal((await graded.json()).submissions[0].points, 1);
