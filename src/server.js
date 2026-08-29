@@ -88,7 +88,7 @@ async function runScheduledTask({ store, config }) {
     if (!match) throw new Error('POOL_LIVE_RESET_TARGET must use YYYY:WEEK format.');
     const season = Number(match[1]);
     const weekNumber = Number(match[2]);
-    const migrationKey = `live-reset:${season}:${weekNumber}:${config.scheduleProvider}`;
+    const migrationKey = `live-reset-v2:${season}:${weekNumber}:${config.scheduleProvider}`;
     const current = await store.read();
     const alreadyReset = (current.completedMigrations || []).includes(migrationKey);
     if (!alreadyReset) return resetLiveSeason({ store, config, season, weekNumber, provider: config.scheduleProvider, migrationKey });

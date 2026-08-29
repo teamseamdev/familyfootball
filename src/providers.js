@@ -54,8 +54,8 @@ async function fetchEspnCoreWeek(season, week, fetchImpl, headers) {
     const event = await fetchJson(item.$ref);
     const competition = await fetchJson(event.competitions?.[0]?.$ref);
     const [status, oddsList] = await Promise.all([fetchJson(competition.status?.$ref), fetchJson(competition.odds?.$ref)]);
-    const [away, home] = String(event.shortName || '').split(' @ ');
-    const [awayName, homeName] = String(event.name || '').split(' at ');
+    const [away, home] = String(event.shortName || '').split(/\s+(?:@|VS)\s+/i);
+    const [awayName, homeName] = String(event.name || '').split(/\s+(?:at|vs\.?)\s+/i);
     const homeId = String(competition.competitors?.[0]?.$ref || '').match(/competitors\/(\d+)/)?.[1];
     const awayId = String(competition.competitors?.[1]?.$ref || '').match(/competitors\/(\d+)/)?.[1];
     const state = status.type?.state;
