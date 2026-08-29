@@ -74,6 +74,11 @@ export function createPoolServer(overrides = {}) {
 
       if (request.method === 'GET' && route === '/health') return json(response, 200, { ok: true, service: 'family-nfl-pool', now: new Date().toISOString() });
 
+      if (request.method === 'GET' && route === '/api/cron') {
+        if (!config.cronSecret || request.headers.authorization !== `Bearer ${config.cronSecret}`) return json(response, 403, { error: 'Cron authorization required' });
+        return json(response, 200, await schedulerTick({ store, config }));
+      }
+
       if (request.method === 'GET' && (route === '/setup' || route === '/setup/')) {
         return text(response, 200, fs.readFileSync(path.join(publicDir, 'index.html')), mime['.html']);
       }
@@ -143,6 +148,8 @@ export function createPoolServer(overrides = {}) {
         return json(response, 200, { season: state.activeSeason, activeWeek: state.activeWeek, weeks, standings: standings(state, config) });
       }
 
+      if (route.startsWith('/api/simulation/') && !config.simulationEnabled) return json(response, 404, { error: 'Test mode is disabled.' });
+
       if (request.method === 'POST' && route === '/api/simulation/reset-season') {
         const state = createMockWeekOneState(config.baseUrl);
         await store.write(state);
@@ -167,6 +174,36 @@ export function createPoolServer(overrides = {}) {
       }
 
       if (route.startsWith('/api/admin/') && !admin(request)) return json(response, 403, { error: 'Admin key required' });
+
+      if (request.method === 'POST' && route === '/api/admin/reset-live-season') {
+        const input = await body(request);
+        const previous = await store.read();
+        const season = Number(input.season);
+        const weekNumber = Number(input.week || 1);
+        if (!Number.isInteger(season) || season < 2000 || !Number.isInteger(weekNumber) || weekNumber < 1) return json(response, 400, { error: 'A valid season and week are required.' });
+        const provider = input.provider || config.scheduleProvider;
+        const result = await ingestWeek({ season, week: weekNumber, provider, fallbackProvider: config.fallbackProvider, manualGames: input.games || [] });
+        const players = previous.players?.length ? previous.players : ['Moe', 'John', 'Diane', 'Adam'];
+        const clean = {
+          version: 1,
+          mode: 'live',
+          activeSeason: season,
+          activeWeek: weekNumber,
+          players,
+          weeks: {
+            [String(weekNumber)]: {
+              season, week: weekNumber, label: `Week ${weekNumber}`, status: 'draft', source: result.source,
+              spreadCapturedAt: result.capturedAt, shareToken: '', formUrl: '', publishedAt: '', picksLockedAt: '',
+              games: chronological(result.games), submissions: []
+            }
+          },
+          history: Object.fromEntries(players.map(name => [name, []])),
+          audit: []
+        };
+        audit(clean, 'season.reset-live', `Clean ${season} Week ${weekNumber} created from ${result.source}`);
+        await store.write(clean);
+        return json(response, 201, { week: weekSnapshot(clean.weeks[String(weekNumber)], config), warnings: result.warnings || [], timing: timingSummary(clean.weeks[String(weekNumber)], config) });
+      }
 
       if (request.method === 'POST' && route === '/api/admin/ingest') {
         const input = await body(request);

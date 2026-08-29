@@ -30,10 +30,13 @@ function render(week, season) {
   $('#week-status').textContent = week.picksRevealed ? `${week.status.toUpperCase()} • ${week.submissions.length} entries` : `${week.status.toUpperCase()} • PICKS HIDDEN`;
   $('#week-pill').textContent = `Through Week ${season.activeWeek}`;
   $('#week-heading').textContent = `Week ${week.week} matchups`;
-  $('#mock-form').href = week.shareUrl || '#';
-  $('#test-heading').textContent = week.poolMode === 'test' ? `Test Week ${week.week}` : 'Test the season flow';
-  $('#mock-finish').disabled = week.poolMode !== 'test' || week.status === 'final' || !week.canSimulate;
-  $('#mock-next').disabled = week.poolMode !== 'test' || week.status !== 'final';
+  const mockForm = $('#mock-form');
+  const mockFinish = $('#mock-finish');
+  const mockNext = $('#mock-next');
+  if (mockForm) mockForm.href = week.shareUrl || '#';
+  if ($('#test-heading')) $('#test-heading').textContent = week.poolMode === 'test' ? `Test Week ${week.week}` : 'Test the season flow';
+  if (mockFinish) mockFinish.disabled = week.poolMode !== 'test' || week.status === 'final' || !week.canSimulate;
+  if (mockNext) mockNext.disabled = week.poolMode !== 'test' || week.status !== 'final';
   $('#publish-time').textContent = week.timing.publishAt ? localDate(week.timing.publishAt, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Waiting for slate';
 
   const pickLink = $('#top-pick-link');
@@ -41,7 +44,7 @@ function render(week, season) {
   const formOpen = week.acceptingSubmissions && week.shareUrl;
   pickLink.href = week.shareUrl || '#';
   pickLink.hidden = !formOpen || Boolean(submittedHere);
-  $('#mock-form').hidden = !formOpen || Boolean(submittedHere);
+  if (mockForm) mockForm.hidden = !formOpen || Boolean(submittedHere);
 
   const leader = season.standings[0];
   const finalGames = week.games.filter(game => game.status === 'final').length;
@@ -160,11 +163,11 @@ async function simulationAction(path, workingMessage) {
   location.reload();
 }
 
-$('#mock-reset').addEventListener('click', () => {
+$('#mock-reset')?.addEventListener('click', () => {
   if (confirm('Start the test season over? This clears every existing test week and its picks.')) simulationAction('/api/simulation/reset-season', 'Preparing a clean Test Week 1…');
 });
-$('#mock-finish').addEventListener('click', () => simulationAction('/api/simulation/finish', 'Applying final scores and grading every pick…'));
-$('#mock-next').addEventListener('click', () => simulationAction('/api/simulation/next-week', 'Opening the next test week while keeping the standings…'));
+$('#mock-finish')?.addEventListener('click', () => simulationAction('/api/simulation/finish', 'Applying final scores and grading every pick…'));
+$('#mock-next')?.addEventListener('click', () => simulationAction('/api/simulation/next-week', 'Opening the next test week while keeping the standings…'));
 
 document.querySelectorAll('.nav-link').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('.nav-link,.dashboard-section').forEach(item => item.classList.remove('active'));

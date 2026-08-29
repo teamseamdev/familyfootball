@@ -83,14 +83,8 @@
         <article class="card setup-card"><span class="step">04</span><h3>Grade &amp; roll</h3><p>Final scores grade every ATS choice. Wins are 1 point; losses and pushes are 0.</p><span class="status good">Automatic math</span></article>
       </div>
       <article class="card simulation-card">
-        <div><p class="eyebrow">MULTI-WEEK TEST MODE</p><h2 id="test-heading">Test the season flow</h2><p class="muted">Start a clean test season, submit picks, simulate the scores, then advance through as many weeks as you want.</p></div>
-        <div class="simulation-actions">
-          <button id="mock-reset" class="button secondary" type="button">1. Start over at Week 1</button>
-          <a id="mock-form" class="button primary" href="#" target="_blank">2. Enter current picks</a>
-          <button id="mock-finish" class="button secondary" type="button">3. Simulate this week</button>
-          <button id="mock-next" class="button secondary" type="button">4. Open next test week</button>
-        </div>
-        <p id="simulation-message" class="simulation-message" role="status">Test mode uses the same Supabase workflow as the real pool.</p>
+        <div><p class="eyebrow">PRODUCTION MODE</p><h2>Live season automation</h2><p class="muted">Vercel checks the scheduler every minute. Once the first game begins, ESPN scores, ATS results, weekly totals, and season standings refresh automatically.</p></div>
+        <span class="status good">One-minute refresh active</span>
       </article>
     </section>
   </main>

@@ -48,7 +48,7 @@ test('full local flow: form, submission, result grading, and standings', async t
     version: 1, activeSeason: 2030, activeWeek: 1, players: ['Jordan'], history: {}, audit: [],
     weeks: { '1': { season: 2030, week: 1, label: 'Week 1', status: 'open', source: 'test', spreadCapturedAt: new Date().toISOString(), shareToken: 'test-link', formUrl: '', publishedAt: new Date().toISOString(), picksLockedAt: kickoff, games: [{ id: 'g1', kickoff, away: 'DEN', home: 'BUF', homeSpread: -3, status: 'scheduled', awayScore: null, homeScore: null, source: 'test' }], submissions: [] } }
   });
-  const app = createPoolServer({ store, port: 0, baseUrl: 'http://127.0.0.1', adminKey: 'test-admin' });
+  const app = createPoolServer({ store, port: 0, baseUrl: 'http://127.0.0.1', adminKey: 'test-admin', cronSecret: 'test-cron' });
   const address = await app.start(0);
   t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;
@@ -59,7 +59,10 @@ test('full local flow: form, submission, result grading, and standings', async t
 
   const setupPage = await fetch(`${base}/setup`);
   assert.equal(setupPage.status, 200);
-  assert.match(await setupPage.text(), /MULTI-WEEK TEST MODE/);
+  assert.match(await setupPage.text(), /PRODUCTION MODE/);
+
+  assert.equal((await fetch(`${base}/api/cron`)).status, 403);
+  assert.equal((await fetch(`${base}/api/cron`, { headers: { authorization: 'Bearer test-cron' } })).status, 200);
 
   const form = await fetch(`${base}/api/public/week/test-link`);
   assert.equal(form.status, 200);
@@ -83,10 +86,19 @@ test('full local flow: form, submission, result grading, and standings', async t
   assert.equal(graded.status, 200);
   assert.equal((await graded.json()).submissions[0].points, 1);
   assert.equal(standings(store.read(), { pushPoints: 0 })[0].total, 1);
+
+  const cleanGame = { id: 'new-g1', kickoff, away: 'KC', home: 'DEN', homeSpread: 1.5, status: 'scheduled', awayScore: null, homeScore: null, source: 'manual' };
+  const liveReset = await fetch(`${base}/api/admin/reset-live-season`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ season: 2031, week: 1, provider: 'manual', games: [cleanGame] }) });
+  assert.equal(liveReset.status, 201);
+  const cleanState = store.read();
+  assert.equal(cleanState.mode, 'live');
+  assert.equal(cleanState.activeSeason, 2031);
+  assert.deepEqual(cleanState.history, { Jordan: [] });
+  assert.equal(cleanState.weeks['1'].submissions.length, 0);
 });
 
 test('full multi-week test flow: reset, picks, grade, and advance', async t => {
-  const app = createPoolServer({ storageProvider: 'memory', port: 0, baseUrl: 'http://127.0.0.1', adminKey: 'test-admin' });
+  const app = createPoolServer({ storageProvider: 'memory', port: 0, baseUrl: 'http://127.0.0.1', adminKey: 'test-admin', simulationEnabled: true });
   const address = await app.start(0);
   t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;
