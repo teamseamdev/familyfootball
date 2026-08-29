@@ -55,6 +55,11 @@ test('full local flow: form, submission, result grading, and standings', async t
 
   const dashboard = await fetch(base);
   assert.equal(dashboard.status, 200);
+  assert.doesNotMatch(await dashboard.text(), /data-section="setup"/);
+
+  const setupPage = await fetch(`${base}/setup`);
+  assert.equal(setupPage.status, 200);
+  assert.match(await setupPage.text(), /MULTI-WEEK TEST MODE/);
 
   const form = await fetch(`${base}/api/public/week/test-link`);
   assert.equal(form.status, 200);

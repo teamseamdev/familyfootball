@@ -172,4 +172,10 @@ document.querySelectorAll('.nav-link').forEach(button => button.addEventListener
   document.getElementById(button.dataset.section).classList.add('active');
 }));
 
+if (location.pathname.replace(/\/$/, '') === '/setup') {
+  document.querySelectorAll('.nav-link,.dashboard-section').forEach(item => item.classList.remove('active'));
+  $('#setup').classList.add('active');
+  document.title = 'Family Pool Setup';
+}
+
 load().catch(error => { document.body.innerHTML = `<main class="error-card"><h1>Dashboard unavailable</h1><p>${error.message}</p></main>`; });

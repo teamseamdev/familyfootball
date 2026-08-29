@@ -74,6 +74,10 @@ export function createPoolServer(overrides = {}) {
 
       if (request.method === 'GET' && route === '/health') return json(response, 200, { ok: true, service: 'family-nfl-pool', now: new Date().toISOString() });
 
+      if (request.method === 'GET' && (route === '/setup' || route === '/setup/')) {
+        return text(response, 200, fs.readFileSync(path.join(publicDir, 'index.html')), mime['.html']);
+      }
+
       const shortMatch = route.match(/^\/p\/([A-Za-z0-9_-]+)$/);
       if (request.method === 'GET' && shortMatch) {
         const state = await store.read();
