@@ -41,6 +41,43 @@ export function normalizeEspnEvent(event) {
   };
 }
 
+async function fetchEspnCoreWeek(season, week, fetchImpl, headers) {
+  const fetchJson = async url => {
+    const secureUrl = String(url).replace(/^http:/, 'https:');
+    const response = await fetchImpl(secureUrl, { headers });
+    if (!response.ok) throw new Error(`ESPN core returned ${response.status}`);
+    return response.json();
+  };
+  const listUrl = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${season}/types/2/weeks/${week}/events?lang=en&region=us&limit=100`;
+  const list = await fetchJson(listUrl);
+  const games = await Promise.all((list.items || []).map(async item => {
+    const event = await fetchJson(item.$ref);
+    const competition = await fetchJson(event.competitions?.[0]?.$ref);
+    const [status, oddsList] = await Promise.all([fetchJson(competition.status?.$ref), fetchJson(competition.odds?.$ref)]);
+    const [away, home] = String(event.shortName || '').split(' @ ');
+    const [awayName, homeName] = String(event.name || '').split(' at ');
+    const homeId = String(competition.competitors?.[0]?.$ref || '').match(/competitors\/(\d+)/)?.[1];
+    const awayId = String(competition.competitors?.[1]?.$ref || '').match(/competitors\/(\d+)/)?.[1];
+    const state = status.type?.state;
+    const completed = status.type?.completed === true;
+    let awayScore = null, homeScore = null;
+    if (state !== 'pre' && homeId && awayId) {
+      const base = `https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${event.id}/competitions/${competition.id}/competitors`;
+      const [awayScoreData, homeScoreData] = await Promise.all([fetchJson(`${base}/${awayId}/score?lang=en&region=us`), fetchJson(`${base}/${homeId}/score?lang=en&region=us`)]);
+      awayScore = Number(awayScoreData.value);
+      homeScore = Number(homeScoreData.value);
+    }
+    const odds = oddsList.items?.[0];
+    return {
+      id: String(event.id), kickoff: event.date, away, home, awayName, homeName,
+      homeSpread: odds?.spread == null ? null : Number(odds.spread),
+      status: completed ? 'final' : state === 'in' ? 'live' : 'scheduled',
+      awayScore, homeScore, source: 'espn', spreadDetails: odds?.details || null
+    };
+  }));
+  return games.filter(game => game.id && game.away && game.home);
+}
+
 export async function fetchEspnWeek(season, week, fetchImpl = fetch) {
   const params = new URLSearchParams({ dates: String(season), seasontype: '2', week: String(week), limit: '100' });
   const headers = {
@@ -54,7 +91,7 @@ export async function fetchEspnWeek(season, week, fetchImpl = fetch) {
     `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?${params}`,
     `https://cdn.espn.com/core/nfl/scoreboard?xhr=1&${params}`
   ];
-  let data;
+  let events;
   const failures = [];
   for (const url of urls) {
     const response = await fetchImpl(url, { headers });
@@ -62,12 +99,19 @@ export async function fetchEspnWeek(season, week, fetchImpl = fetch) {
       failures.push(`${new URL(url).host} ${response.status}`);
       continue;
     }
-    data = await response.json();
-    break;
+    try {
+      const data = await response.json();
+      const candidate = data.events || data.content?.sbData?.events || [];
+      if (candidate.length) {
+        events = candidate;
+        break;
+      }
+      failures.push(`${new URL(url).host} returned no events`);
+    } catch {
+      failures.push(`${new URL(url).host} returned invalid JSON`);
+    }
   }
-  if (!data) throw new Error(`ESPN returned no usable response (${failures.join(', ')})`);
-  const events = data.events || data.content?.sbData?.events || [];
-  const games = events.map(normalizeEspnEvent).filter(Boolean);
+  const games = events ? events.map(normalizeEspnEvent).filter(Boolean) : await fetchEspnCoreWeek(season, week, fetchImpl, headers);
   if (!games.length) throw new Error(`ESPN returned no NFL games for ${season} week ${week}`);
   const invalidScores = games.filter(game => game.status === 'final' && (!Number.isInteger(game.awayScore) || !Number.isInteger(game.homeScore)));
   if (invalidScores.length) throw new Error(`ESPN returned a non-integer NFL score for ${invalidScores.map(game => `${game.away} @ ${game.home}`).join(', ')}`);
