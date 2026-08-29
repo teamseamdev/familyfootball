@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { JsonStore, audit } from './store.js';
-import { chronological, gameChoices, overallTotalsThroughWeek, picksAreRevealed, standings, validatePicks, weekSnapshot } from './pool.js';
+import { chronological, formStatusLabel, gameChoices, overallTotalsThroughWeek, picksAreRevealed, standings, validatePicks, weekSnapshot } from './pool.js';
 import { ingestWeek } from './providers.js';
 import { publishWeek, schedulerTick, startScheduler } from './scheduler.js';
 import { timingSummary } from './timing.js';
@@ -181,7 +181,8 @@ export function createPoolServer(overrides = {}) {
         const submittedNames = new Set((week.submissions || []).map(item => item.name.toLowerCase()));
         const pendingPlayers = players.filter(name => !submittedNames.has(name.toLowerCase()));
         const acceptingSubmissions = week.status === 'open' && new Date() < new Date(week.picksLockedAt) && players.some(name => !submittedNames.has(name.toLowerCase()));
-        return json(response, 200, { ...snapshot, players, pendingPlayers, picksRevealed, acceptingSubmissions, canSimulate: (week.submissions || []).length > 0, overallTotals: overallTotalsThroughWeek(state, number, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
+        const formStatus = formStatusLabel(week, { picksRevealed, acceptingSubmissions });
+        return json(response, 200, { ...snapshot, players, pendingPlayers, picksRevealed, acceptingSubmissions, formStatus, canSimulate: (week.submissions || []).length > 0, overallTotals: overallTotalsThroughWeek(state, number, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
       }
       if (request.method === 'GET' && route === '/api/standings') {
         const state = await store.read();

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { gameAtsOutcome, gameChoices, gradePick, picksAreRevealed, standings } from '../src/pool.js';
+import { formStatusLabel, gameAtsOutcome, gameChoices, gradePick, picksAreRevealed, standings } from '../src/pool.js';
 import { publishTime } from '../src/timing.js';
 import { createPoolServer } from '../src/server.js';
 import { JsonStore } from '../src/store.js';
@@ -43,6 +43,13 @@ test('picks remain private until all players submit, kickoff arrives, or games s
   assert.equal(picksAreRevealed({ ...week, submissions: players.map(name => ({ name })) }, players, new Date('2030-09-07T17:00:00.000Z')), true);
   assert.equal(picksAreRevealed(week, players, new Date(kickoff)), true);
   assert.equal(picksAreRevealed({ ...week, status: 'final' }, players, new Date('2030-09-07T17:00:00.000Z')), true);
+});
+
+test('form status follows locked, open-hidden, and closed weekly states', () => {
+  assert.equal(formStatusLabel({ week: 2, status: 'draft' }), 'Week 2 Form Locked');
+  assert.equal(formStatusLabel({ week: 2, status: 'open' }, { acceptingSubmissions: true, picksRevealed: false }), 'Open - Picks Hidden');
+  assert.equal(formStatusLabel({ week: 2, status: 'open' }, { acceptingSubmissions: false, picksRevealed: true }), 'Week 2 Form Closed');
+  assert.equal(formStatusLabel({ week: 2, status: 'live' }, { acceptingSubmissions: false, picksRevealed: true }), 'Week 2 Form Closed');
 });
 
 test('publish time is 6 PM Eastern on the day before first kickoff across DST', () => {

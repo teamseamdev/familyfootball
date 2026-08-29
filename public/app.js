@@ -27,7 +27,7 @@ function render(week, season) {
   }
   $('#season-label').textContent = `${season.season} NFL SEASON`;
   $('#summary-week').textContent = `Week ${season.activeWeek}`;
-  $('#week-status').textContent = week.picksRevealed ? `${week.status.toUpperCase()} • ${week.submissions.length} entries` : `${week.status.toUpperCase()} • PICKS HIDDEN`;
+  $('#week-status').textContent = week.formStatus;
   $('#week-pill').textContent = `Through Week ${season.activeWeek}`;
   $('#week-heading').textContent = `Week ${week.week} matchups`;
   const mockForm = $('#mock-form');

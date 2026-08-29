@@ -115,6 +115,12 @@ export function picksAreRevealed(week, players = [], now = new Date()) {
   return allSubmitted || kickoffReached || gameStarted;
 }
 
+export function formStatusLabel(week, { picksRevealed = false, acceptingSubmissions = false } = {}) {
+  if (acceptingSubmissions && !picksRevealed) return 'Open - Picks Hidden';
+  if (week.status === 'draft') return `Week ${week.week} Form Locked`;
+  return `Week ${week.week} Form Closed`;
+}
+
 export function validatePicks(week, picks) {
   const errors = [];
   for (const game of week.games) {
