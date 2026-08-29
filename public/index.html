@@ -3,6 +3,26 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Family Football Pool</title><link rel="stylesheet" href="/styles.css">
+  <style>
+    html,body{max-width:100%;overflow-x:hidden}
+    .topbar,.shell,.dashboard-section,.content-grid{min-width:0;max-width:100%}
+    .shell{width:100%}
+    .nav{min-width:0;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+    .nav::-webkit-scrollbar{display:none}
+    .grade-audit{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+    .team-picks{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--rule);padding-top:14px}
+    .team-picks>div{display:flex;gap:7px;flex-wrap:wrap;min-width:0}
+    .team-picks>div:last-child{justify-content:flex-end}
+    .pick-avatar{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,var(--avatar) 22%,#0d2a34);color:var(--avatar);font-size:11px;font-weight:900;border:1px solid color-mix(in srgb,var(--avatar) 48%,transparent)}
+    .picks-hidden{color:var(--muted);font-size:11px;text-align:center;border-top:1px solid var(--rule);padding-top:12px}
+    .standings-hidden{border:0;padding:26px 0}
+    .submission-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 18px;padding:12px 15px;border:1px solid #35515b;border-radius:14px;background:#102a34;color:var(--muted)}
+    .submission-status strong{color:var(--text)}
+    .submission-status span{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+    .submission-status i{display:inline-grid;place-items:center;width:24px;height:24px;margin-left:5px;border-radius:50%;background:color-mix(in srgb,var(--avatar) 22%,#0d2a34);border:1px solid color-mix(in srgb,var(--avatar) 48%,transparent);color:var(--avatar);font-size:10px;font-style:normal;font-weight:900}
+    .submission-status.complete{border-color:#2d8063;background:#102f29}
+    @media(max-width:600px){.game-card,.teams{min-width:0}.teams{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}}
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -40,6 +60,7 @@
 
     <section id="week" class="dashboard-section">
       <div class="section-heading"><div><p class="eyebrow">PICKS &amp; SCORES</p><h2 id="week-heading">Week</h2></div></div>
+      <div id="submission-status" class="submission-status"></div>
       <div id="games" class="games-grid"></div>
     </section>
 

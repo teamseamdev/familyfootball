@@ -107,6 +107,14 @@ export function overallTotalsThroughWeek(state, throughWeek, config = {}) {
   return totals;
 }
 
+export function picksAreRevealed(week, players = [], now = new Date()) {
+  const submitted = new Set((week.submissions || []).map(item => item.name.toLowerCase()));
+  const allSubmitted = players.length > 0 && players.every(name => submitted.has(name.toLowerCase()));
+  const kickoffReached = Boolean(week.picksLockedAt) && now >= new Date(week.picksLockedAt);
+  const gameStarted = week.status === 'live' || week.status === 'final' || (week.games || []).some(game => game.status === 'live' || game.status === 'final');
+  return allSubmitted || kickoffReached || gameStarted;
+}
+
 export function validatePicks(week, picks) {
   const errors = [];
   for (const game of week.games) {

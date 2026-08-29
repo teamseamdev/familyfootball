@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { gameAtsOutcome, gameChoices, gradePick, standings } from '../src/pool.js';
+import { gameAtsOutcome, gameChoices, gradePick, picksAreRevealed, standings } from '../src/pool.js';
 import { publishTime } from '../src/timing.js';
 import { createPoolServer } from '../src/server.js';
 import { JsonStore } from '../src/store.js';
@@ -23,6 +23,16 @@ test('ATS grading covers wins, losses, pushes, and tied games', () => {
   assert.deepEqual(gameAtsOutcome(push), { result: 'push', team: null });
   const tiedPickEm = { ...favoriteCovers, homeSpread: 0, awayScore: 17, homeScore: 17 };
   assert.deepEqual(gradePick(tiedPickEm, 'BUF'), { result: 'push', points: 0 });
+});
+
+test('picks remain private until all players submit, kickoff arrives, or games start', () => {
+  const kickoff = '2030-09-08T17:00:00.000Z';
+  const week = { status: 'open', picksLockedAt: kickoff, games: [{ status: 'scheduled' }], submissions: [{ name: 'Moe' }, { name: 'John' }] };
+  const players = ['Moe', 'John', 'Diane', 'Adam'];
+  assert.equal(picksAreRevealed(week, players, new Date('2030-09-07T17:00:00.000Z')), false);
+  assert.equal(picksAreRevealed({ ...week, submissions: players.map(name => ({ name })) }, players, new Date('2030-09-07T17:00:00.000Z')), true);
+  assert.equal(picksAreRevealed(week, players, new Date(kickoff)), true);
+  assert.equal(picksAreRevealed({ ...week, status: 'final' }, players, new Date('2030-09-07T17:00:00.000Z')), true);
 });
 
 test('publish time is 6 PM Eastern on the day before first kickoff across DST', () => {
@@ -82,8 +92,16 @@ test('full multi-week test flow: reset, picks, grade, and advance', async t => {
   const picks = Object.fromEntries(week.games.map(game => [game.id, game.away]));
   const submitted = await fetch(`${base}/api/public/week/mock-week-1/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Moe', picks }) });
   assert.equal(submitted.status, 201);
+  const privateWeek = await (await fetch(`${base}/api/week`)).json();
+  assert.equal(privateWeek.picksRevealed, false);
+  assert.equal(privateWeek.submissions.length, 0);
+  assert.deepEqual(privateWeek.pendingPlayers, ['John', 'Diane', 'Adam']);
+  assert.equal(privateWeek.canSimulate, true);
   const finished = await fetch(`${base}/api/simulation/finish`, { method: 'POST' });
   assert.equal(finished.status, 200);
+  const revealedWeek = await (await fetch(`${base}/api/week`)).json();
+  assert.equal(revealedWeek.picksRevealed, true);
+  assert.equal(revealedWeek.submissions.length, 1);
   const advanced = await fetch(`${base}/api/simulation/next-week`, { method: 'POST' });
   assert.equal(advanced.status, 201);
   const next = await advanced.json();

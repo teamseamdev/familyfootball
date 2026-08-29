@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { JsonStore, audit } from './store.js';
-import { chronological, gameChoices, overallTotalsThroughWeek, standings, validatePicks, weekSnapshot } from './pool.js';
+import { chronological, gameChoices, overallTotalsThroughWeek, picksAreRevealed, standings, validatePicks, weekSnapshot } from './pool.js';
 import { ingestWeek } from './providers.js';
 import { publishWeek, schedulerTick, startScheduler } from './scheduler.js';
 import { timingSummary } from './timing.js';
@@ -124,14 +124,20 @@ export function createPoolServer(overrides = {}) {
         const week = state.weeks[String(number)];
         if (!week) return json(response, 404, { error: `Week ${number} not found` });
         const shareUrl = week.formUrl || (week.shareToken ? `${config.baseUrl.replace(/\/$/, '')}/p/${week.shareToken}` : '');
-        return json(response, 200, { ...weekSnapshot(week, config), players: state.players || [], overallTotals: overallTotalsThroughWeek(state, number, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
+        const players = state.players || [];
+        const picksRevealed = picksAreRevealed(week, players);
+        const snapshot = weekSnapshot(week, config);
+        if (!picksRevealed) snapshot.submissions = [];
+        const submittedNames = new Set((week.submissions || []).map(item => item.name.toLowerCase()));
+        const pendingPlayers = players.filter(name => !submittedNames.has(name.toLowerCase()));
+        const acceptingSubmissions = week.status === 'open' && new Date() < new Date(week.picksLockedAt) && players.some(name => !submittedNames.has(name.toLowerCase()));
+        return json(response, 200, { ...snapshot, players, pendingPlayers, picksRevealed, acceptingSubmissions, canSimulate: (week.submissions || []).length > 0, overallTotals: overallTotalsThroughWeek(state, number, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
       }
       if (request.method === 'GET' && route === '/api/standings') {
         const state = await store.read();
         const weeks = Object.values(state.weeks || {}).map(week => ({ week: Number(week.week), label: week.label || `Week ${week.week}`, status: week.status })).sort((a, b) => a.week - b.week);
         return json(response, 200, { season: state.activeSeason, activeWeek: state.activeWeek, weeks, standings: standings(state, config) });
       }
-      if (request.method === 'GET' && route === '/api/audit') return json(response, 200, (await store.read()).audit || []);
 
       if (request.method === 'POST' && route === '/api/simulation/reset-season') {
         const state = createMockWeekOneState(config.baseUrl);
