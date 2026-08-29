@@ -44,7 +44,13 @@ export function normalizeEspnEvent(event) {
 export async function fetchEspnWeek(season, week, fetchImpl = fetch) {
   const params = new URLSearchParams({ dates: String(season), seasontype: '2', week: String(week), limit: '100' });
   const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?${params}`;
-  const response = await fetchImpl(url, { headers: { accept: 'application/json', 'user-agent': 'family-pool-prototype/0.1' } });
+  const response = await fetchImpl(url, { headers: {
+    accept: 'application/json, text/plain, */*',
+    'accept-language': 'en-US,en;q=0.9',
+    origin: 'https://www.espn.com',
+    referer: 'https://www.espn.com/',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/127.0 Safari/537.36'
+  } });
   if (!response.ok) throw new Error(`ESPN returned ${response.status}`);
   const data = await response.json();
   const games = (data.events || []).map(normalizeEspnEvent).filter(Boolean);
