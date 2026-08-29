@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { JsonStore, audit } from './store.js';
-import { chronological, gameChoices, standings, validatePicks, weekSnapshot } from './pool.js';
+import { chronological, gameChoices, overallTotalsThroughWeek, standings, validatePicks, weekSnapshot } from './pool.js';
 import { ingestWeek } from './providers.js';
 import { publishWeek, schedulerTick, startScheduler } from './scheduler.js';
 import { timingSummary } from './timing.js';
@@ -124,7 +124,7 @@ export function createPoolServer(overrides = {}) {
         const week = state.weeks[String(number)];
         if (!week) return json(response, 404, { error: `Week ${number} not found` });
         const shareUrl = week.formUrl || (week.shareToken ? `${config.baseUrl.replace(/\/$/, '')}/p/${week.shareToken}` : '');
-        return json(response, 200, { ...weekSnapshot(week, config), players: state.players || [], timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
+        return json(response, 200, { ...weekSnapshot(week, config), players: state.players || [], overallTotals: overallTotalsThroughWeek(state, number, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
       }
       if (request.method === 'GET' && route === '/api/standings') {
         const state = await store.read();

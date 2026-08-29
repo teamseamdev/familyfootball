@@ -100,6 +100,7 @@ function renderWeekRecords(week) {
   const headings = week.games.map(game => `<th title="${game.away} @ ${game.home}">${game.away}<br>@ ${game.home}</th>`).join('');
   const byName = new Map(week.submissions.map(entry => [entry.name, entry]));
   const players = week.players || [...byName.keys()];
+  const showOverall = Number(week.week) > 1;
   const rows = players.map(name => {
     const entry = byName.get(name);
     const cells = week.games.map(game => {
@@ -109,9 +110,11 @@ function renderWeekRecords(week) {
       const score = grade.points == null ? '' : `<small>${points(grade.points)}</small>`;
       return `<td class="grade-${grade.result}" title="${entry.picks[game.id]}: ${grade.result}"><span>${entry.picks[game.id]}</span><b>${symbol}</b>${score}</td>`;
     }).join('');
-    return `<tr><th>${name}</th><td class="grade-total"><strong>${entry ? points(entry.points) : '—'}</strong></td>${cells}</tr>`;
+    const overall = showOverall ? `<td class="grade-total overall-total"><strong>${points(week.overallTotals?.[name] || 0)}</strong></td>` : '';
+    return `<tr><th>${name}</th>${overall}<td class="grade-total"><strong>${entry ? points(entry.points) : '—'}</strong></td>${cells}</tr>`;
   }).join('');
-  target.innerHTML = `<table><thead><tr><th>Player</th><th>Week total</th>${headings}</tr></thead><tbody>${rows}</tbody></table>`;
+  const overallHeading = showOverall ? '<th>Overall wins</th>' : '';
+  target.innerHTML = `<table><thead><tr><th>Player</th>${overallHeading}<th>Weekly wins</th>${headings}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 $('#records-week').addEventListener('change', async event => {

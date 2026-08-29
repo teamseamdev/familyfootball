@@ -88,6 +88,19 @@ export function standings(state, config = {}) {
   return rows.map((row, index) => ({ ...row, rank: index + 1 }));
 }
 
+export function overallTotalsThroughWeek(state, throughWeek, config = {}) {
+  const names = new Set(state.players || []);
+  const totals = {};
+  for (const name of names) totals[name] = (state.history?.[name] || []).reduce((sum, value) => sum + Number(value || 0), 0);
+  const weeks = Object.values(state.weeks || {}).filter(week => Number(week.week) <= Number(throughWeek));
+  for (const week of weeks) {
+    for (const submission of week.submissions || []) {
+      totals[submission.name] = Number(totals[submission.name] || 0) + gradeSubmission(week, submission, config.pushPoints ?? 0).points;
+    }
+  }
+  return totals;
+}
+
 export function validatePicks(week, picks) {
   const errors = [];
   for (const game of week.games) {

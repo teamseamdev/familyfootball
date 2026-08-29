@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { advanceMockWeek, createMockWeekOneState, finishMockWeek } from '../src/mock-week.js';
-import { gradeSubmission, standings } from '../src/pool.js';
+import { gradeSubmission, overallTotalsThroughWeek, standings } from '../src/pool.js';
 
 test('Mock Week 1 contains 16 games and produces wins, losses, and a push', () => {
   const state = createMockWeekOneState();
@@ -35,4 +35,6 @@ test('multi-week test season keeps each week and produces accurate standings tre
   assert.equal(moe.trend.length, 2);
   assert.equal(moe.total, moe.trend[0] + moe.trend[1]);
   assert.equal(moe.current, moe.trend[1]);
+  assert.equal(overallTotalsThroughWeek(state, 1, { pushPoints: 0 }).Moe, moe.trend[0]);
+  assert.equal(overallTotalsThroughWeek(state, 2, { pushPoints: 0 }).Moe, moe.total);
 });
