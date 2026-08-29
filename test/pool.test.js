@@ -127,3 +127,20 @@ test('full multi-week test flow: reset, picks, grade, and advance', async t => {
   const season = await (await fetch(`${base}/api/standings`)).json();
   assert.deepEqual(season.weeks.map(item => item.week), [1, 2]);
 });
+
+test('scheduled live reset is permanently idempotent after its first run', async t => {
+  const app = createPoolServer({ storageProvider: 'memory', port: 0, baseUrl: 'http://127.0.0.1', cronSecret: 'test-cron', liveResetTarget: '2026:1', scheduleProvider: 'sample' });
+  const address = await app.start(0);
+  t.after(() => app.stop());
+  const base = `http://127.0.0.1:${address.port}`;
+  const headers = { authorization: 'Bearer test-cron' };
+  assert.equal((await fetch(`${base}/api/cron`, { headers })).status, 200);
+  const resetState = await app.store.read();
+  assert.equal(resetState.mode, 'live');
+  assert.deepEqual(resetState.completedMigrations, ['live-reset:2026:1']);
+  resetState.activeWeek = 2;
+  resetState.weeks['2'] = { season: 2026, week: 2, games: [], submissions: [] };
+  await app.store.write(resetState);
+  assert.equal((await fetch(`${base}/api/cron`, { headers })).status, 200);
+  assert.equal((await app.store.read()).activeWeek, 2);
+});

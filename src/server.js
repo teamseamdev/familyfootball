@@ -56,7 +56,7 @@ function publicWeek(week, config, players = []) {
   };
 }
 
-async function resetLiveSeason({ store, config, season, weekNumber = 1, provider, manualGames = [] }) {
+async function resetLiveSeason({ store, config, season, weekNumber = 1, provider, manualGames = [], migrationKey = '' }) {
   const previous = await store.read();
   const result = await ingestWeek({ season, week: weekNumber, provider, fallbackProvider: config.fallbackProvider, manualGames });
   const players = previous.players?.length ? previous.players : ['Moe', 'John', 'Diane', 'Adam'];
@@ -74,11 +74,26 @@ async function resetLiveSeason({ store, config, season, weekNumber = 1, provider
       }
     },
     history: Object.fromEntries(players.map(name => [name, []])),
+    completedMigrations: [...new Set([...(previous.completedMigrations || []), ...(migrationKey ? [migrationKey] : [])])],
     audit: []
   };
   audit(clean, 'season.reset-live', `Clean ${season} Week ${weekNumber} created from ${result.source}`);
   await store.write(clean);
   return { action: 'live-season-reset', week: weekSnapshot(clean.weeks[String(weekNumber)], config), warnings: result.warnings || [], timing: timingSummary(clean.weeks[String(weekNumber)], config) };
+}
+
+async function runScheduledTask({ store, config }) {
+  if (config.liveResetTarget) {
+    const match = String(config.liveResetTarget).match(/^(\d{4}):(\d{1,2})$/);
+    if (!match) throw new Error('POOL_LIVE_RESET_TARGET must use YYYY:WEEK format.');
+    const season = Number(match[1]);
+    const weekNumber = Number(match[2]);
+    const migrationKey = `live-reset:${season}:${weekNumber}`;
+    const current = await store.read();
+    const alreadyReset = (current.completedMigrations || []).includes(migrationKey);
+    if (!alreadyReset) return resetLiveSeason({ store, config, season, weekNumber, provider: config.scheduleProvider, migrationKey });
+  }
+  return schedulerTick({ store, config });
 }
 
 export function createPoolServer(overrides = {}) {
@@ -102,16 +117,7 @@ export function createPoolServer(overrides = {}) {
 
       if (request.method === 'GET' && route === '/api/cron') {
         if (!config.cronSecret || request.headers.authorization !== `Bearer ${config.cronSecret}`) return json(response, 403, { error: 'Cron authorization required' });
-        if (config.liveResetTarget) {
-          const match = String(config.liveResetTarget).match(/^(\d{4}):(\d{1,2})$/);
-          if (!match) return json(response, 500, { error: 'POOL_LIVE_RESET_TARGET must use YYYY:WEEK format.' });
-          const season = Number(match[1]);
-          const weekNumber = Number(match[2]);
-          const current = await store.read();
-          const alreadyReset = current.mode === 'live' && Number(current.activeSeason) === season && Number(current.activeWeek) === weekNumber && Object.keys(current.weeks || {}).length === 1;
-          if (!alreadyReset) return json(response, 200, await resetLiveSeason({ store, config, season, weekNumber, provider: config.scheduleProvider }));
-        }
-        return json(response, 200, await schedulerTick({ store, config }));
+        return json(response, 200, await runScheduledTask({ store, config }));
       }
 
       if (request.method === 'GET' && (route === '/setup' || route === '/setup/')) {
@@ -279,7 +285,7 @@ export function createPoolServer(overrides = {}) {
         return json(response, 201, weekSnapshot(state.weeks[String(nextWeek)], config));
       }
 
-      if (request.method === 'POST' && route === '/api/admin/scheduler-tick') return json(response, 200, await schedulerTick({ store, config }));
+      if (request.method === 'POST' && route === '/api/admin/scheduler-tick') return json(response, 200, await runScheduledTask({ store, config }));
 
       const file = safeStaticPath(route);
       if (request.method === 'GET' && file && fs.existsSync(file) && fs.statSync(file).isFile()) return text(response, 200, fs.readFileSync(file), mime[path.extname(file)] || 'application/octet-stream');
