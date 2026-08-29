@@ -12,7 +12,6 @@ export function loadConfig(overrides = {}) {
     port: process.env.PORT ? Number(process.env.PORT) : undefined,
     baseUrl: process.env.POOL_BASE_URL,
     timeZone: process.env.POOL_TIME_ZONE,
-    dashboardPasscode: process.env.POOL_PASSCODE,
     adminKey: process.env.POOL_ADMIN_KEY,
     storageProvider: process.env.POOL_STORAGE_PROVIDER,
     supabaseUrl: process.env.SUPABASE_URL,

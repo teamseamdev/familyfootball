@@ -1,5 +1,4 @@
 {
-  "dashboardPasscode": "choose-a-family-passcode",
   "adminKey": "choose-a-long-random-admin-key",
   "storageProvider": "supabase",
   "supabaseUrl": "https://YOUR_PROJECT.supabase.co",

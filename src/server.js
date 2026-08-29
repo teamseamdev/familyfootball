@@ -7,7 +7,6 @@ import { loadConfig } from './config.js';
 import { JsonStore, audit } from './store.js';
 import { chronological, gameChoices, standings, validatePicks, weekSnapshot } from './pool.js';
 import { ingestWeek } from './providers.js';
-import { pickSheetSvg } from './picksheet.js';
 import { publishWeek, schedulerTick, startScheduler } from './scheduler.js';
 import { timingSummary } from './timing.js';
 import { SupabaseStore } from './supabase-store.js';
@@ -16,14 +15,6 @@ import { MemoryStore } from './memory-store.js';
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
-
-function sessionValue(passcode) {
-  return crypto.createHash('sha256').update(`pool:${passcode}`).digest('hex');
-}
-
-function cookies(request) {
-  return Object.fromEntries(String(request.headers.cookie || '').split(';').map(item => item.trim().split('=').map(decodeURIComponent)).filter(parts => parts.length === 2));
-}
 
 function json(response, status, data, headers = {}) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers });
@@ -60,6 +51,7 @@ function publicWeek(week, config, players = []) {
     spreadCapturedAt: snapshot.spreadCapturedAt,
     picksLockedAt: snapshot.picksLockedAt,
     players,
+    submittedPlayers: snapshot.submissions.map(submission => submission.name),
     games: snapshot.games.map(({ awayScore, homeScore, status, ...game }) => game)
   };
 }
@@ -73,7 +65,6 @@ export function createPoolServer(overrides = {}) {
         ? new MemoryStore(createMockWeekOneState(config.baseUrl))
         : new JsonStore(config.dataFile)
   );
-  const authenticated = request => !config.dashboardPasscode || cookies(request).pool_session === sessionValue(config.dashboardPasscode);
   const admin = request => request.headers['x-admin-key'] === config.adminKey;
 
   const handler = async (request, response) => {
@@ -82,15 +73,6 @@ export function createPoolServer(overrides = {}) {
       const route = url.pathname;
 
       if (request.method === 'GET' && route === '/health') return json(response, 200, { ok: true, service: 'family-nfl-pool', now: new Date().toISOString() });
-
-      if (request.method === 'POST' && route === '/login') {
-        const input = await body(request);
-        if (input.passcode !== config.dashboardPasscode) return text(response, 401, 'That passcode did not match.');
-        return text(response, 303, '', 'text/plain', { 'set-cookie': `pool_session=${sessionValue(config.dashboardPasscode)}; HttpOnly; SameSite=Strict; Path=/`, location: '/' });
-      }
-      if (request.method === 'POST' && route === '/logout') {
-        return text(response, 303, '', 'text/plain', { 'set-cookie': 'pool_session=; Max-Age=0; Path=/', location: '/login.html' });
-      }
 
       const shortMatch = route.match(/^\/p\/([A-Za-z0-9_-]+)$/);
       if (request.method === 'GET' && shortMatch) {
@@ -114,31 +96,26 @@ export function createPoolServer(overrides = {}) {
         const state = await store.read();
         const week = Object.values(state.weeks).find(item => item.shareToken === submitMatch[1]);
         if (!week) return json(response, 404, { error: 'Pool link not found' });
-        if (new Date() >= new Date(week.picksLockedAt)) return json(response, 409, { error: 'Picks are locked because the first game has started.' });
         const requestedName = String(input.name || '').trim().slice(0, 60);
         const name = (state.players || []).find(player => player.toLowerCase() === requestedName.toLowerCase());
         if (!name) return json(response, 400, { error: 'Choose one of the four registered players.' });
+        const existing = week.submissions.find(item => item.name.toLowerCase() === name.toLowerCase());
+        if (existing) return json(response, 409, { error: `${name} already submitted picks for Week ${week.week}. Only the first submission is accepted.` });
+        if (new Date() >= new Date(week.picksLockedAt)) return json(response, 409, { error: 'Picks are locked because the first game has started.' });
         const errors = validatePicks(week, input.picks || {});
         if (errors.length) return json(response, 400, { error: errors.join(' ') });
         const submission = { id: crypto.randomUUID(), name, submittedAt: new Date().toISOString(), picks: input.picks };
-        const existing = week.submissions.findIndex(item => item.name.toLowerCase() === name.toLowerCase());
-        if (existing >= 0) week.submissions[existing] = submission;
-        else week.submissions.push(submission);
+        week.submissions.push(submission);
         audit(state, 'picks.submitted', `${name} submitted Week ${week.week}`);
         await store.write(state);
         return json(response, 201, { ok: true, message: `Picks saved for ${name}.` });
       }
 
-      const staticPublic = ['/login.html', '/pick.html', '/styles.css', '/app.js', '/pick.js'];
+      const staticPublic = ['/pick.html', '/styles.css', '/app.js', '/pick.js'];
       if (request.method === 'GET' && staticPublic.includes(route)) {
         const file = safeStaticPath(route);
         if (!file || !fs.existsSync(file)) return text(response, 404, 'Not found');
         return text(response, 200, fs.readFileSync(file), mime[path.extname(file)] || 'application/octet-stream');
-      }
-
-      if (!authenticated(request) && !route.startsWith('/api/admin/')) {
-        if (route.startsWith('/api/')) return json(response, 401, { error: 'Dashboard login required' });
-        return text(response, 302, '', 'text/plain', { location: '/login.html' });
       }
 
       if (request.method === 'GET' && route === '/api/week') {
@@ -147,19 +124,14 @@ export function createPoolServer(overrides = {}) {
         const week = state.weeks[String(number)];
         if (!week) return json(response, 404, { error: `Week ${number} not found` });
         const shareUrl = week.formUrl || (week.shareToken ? `${config.baseUrl.replace(/\/$/, '')}/p/${week.shareToken}` : '');
-        return json(response, 200, { ...weekSnapshot(week, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
+        return json(response, 200, { ...weekSnapshot(week, config), players: state.players || [], timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
       }
       if (request.method === 'GET' && route === '/api/standings') {
         const state = await store.read();
-        return json(response, 200, { season: state.activeSeason, activeWeek: state.activeWeek, standings: standings(state, config) });
+        const weeks = Object.values(state.weeks || {}).map(week => ({ week: Number(week.week), label: week.label || `Week ${week.week}`, status: week.status })).sort((a, b) => a.week - b.week);
+        return json(response, 200, { season: state.activeSeason, activeWeek: state.activeWeek, weeks, standings: standings(state, config) });
       }
       if (request.method === 'GET' && route === '/api/audit') return json(response, 200, (await store.read()).audit || []);
-      if (request.method === 'GET' && route === '/api/picksheet.svg') {
-        const state = await store.read();
-        const week = state.weeks[String(url.searchParams.get('week') || state.activeWeek)];
-        if (!week) return text(response, 404, 'Week not found');
-        return text(response, 200, pickSheetSvg(week, state), 'image/svg+xml', { 'content-disposition': `inline; filename="week-${week.week}-picks.svg"` });
-      }
 
       if (request.method === 'POST' && route === '/api/simulation/reset-season') {
         const state = createMockWeekOneState(config.baseUrl);

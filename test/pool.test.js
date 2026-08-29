@@ -36,10 +36,13 @@ test('full local flow: form, submission, result grading, and standings', async t
     version: 1, activeSeason: 2030, activeWeek: 1, players: ['Jordan'], history: {}, audit: [],
     weeks: { '1': { season: 2030, week: 1, label: 'Week 1', status: 'open', source: 'test', spreadCapturedAt: new Date().toISOString(), shareToken: 'test-link', formUrl: '', publishedAt: new Date().toISOString(), picksLockedAt: kickoff, games: [{ id: 'g1', kickoff, away: 'DEN', home: 'BUF', homeSpread: -3, status: 'scheduled', awayScore: null, homeScore: null, source: 'test' }], submissions: [] } }
   });
-  const app = createPoolServer({ store, port: 0, baseUrl: 'http://127.0.0.1', dashboardPasscode: 'test-pass', adminKey: 'test-admin' });
+  const app = createPoolServer({ store, port: 0, baseUrl: 'http://127.0.0.1', adminKey: 'test-admin' });
   const address = await app.start(0);
   t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;
+
+  const dashboard = await fetch(base);
+  assert.equal(dashboard.status, 200);
 
   const form = await fetch(`${base}/api/public/week/test-link`);
   assert.equal(form.status, 200);
@@ -51,6 +54,10 @@ test('full local flow: form, submission, result grading, and standings', async t
   const submitted = await fetch(`${base}/api/public/week/test-link/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Jordan', picks: { g1: 'BUF' } }) });
   assert.equal(submitted.status, 201);
 
+  const duplicate = await fetch(`${base}/api/public/week/test-link/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Jordan', picks: { g1: 'DEN' } }) });
+  assert.equal(duplicate.status, 409);
+  assert.match((await duplicate.json()).error, /already submitted/i);
+
   const graded = await fetch(`${base}/api/admin/results`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ week: 1, games: [{ id: 'g1', awayScore: 20, homeScore: 27, status: 'final' }] }) });
   assert.equal(graded.status, 200);
   assert.equal((await graded.json()).submissions[0].points, 1);
@@ -58,7 +65,7 @@ test('full local flow: form, submission, result grading, and standings', async t
 });
 
 test('full multi-week test flow: reset, picks, grade, and advance', async t => {
-  const app = createPoolServer({ storageProvider: 'memory', port: 0, baseUrl: 'http://127.0.0.1', dashboardPasscode: '', adminKey: 'test-admin' });
+  const app = createPoolServer({ storageProvider: 'memory', port: 0, baseUrl: 'http://127.0.0.1', adminKey: 'test-admin' });
   const address = await app.start(0);
   t.after(() => app.stop());
   const base = `http://127.0.0.1:${address.port}`;
@@ -76,4 +83,6 @@ test('full multi-week test flow: reset, picks, grade, and advance', async t => {
   const next = await advanced.json();
   assert.equal(next.week.week, 2);
   assert.match(next.shareUrl, /mock-week-2$/);
+  const season = await (await fetch(`${base}/api/standings`)).json();
+  assert.deepEqual(season.weeks.map(item => item.week), [1, 2]);
 });

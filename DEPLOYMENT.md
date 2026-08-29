@@ -3,7 +3,7 @@
 ## Recommended architecture
 
 - **GitHub:** stores the code and triggers deployments.
-- **Vercel Hobby:** hosts the private dashboard, short pick links, mobile pick form, and API.
+- **Vercel Hobby:** hosts the family dashboard, short pick links, mobile pick form, and API.
 - **Supabase Free:** stores the season permanently and invokes the scheduler every five minutes.
 - **ESPN:** supplies the schedule, captured spreads, and completed scores.
 
@@ -56,7 +56,6 @@ The included `.gitignore` excludes local picks, local secrets, and Vercel metada
 |---|---|
 | `POOL_BASE_URL` | Final Vercel URL, such as `https://familyfootball.vercel.app` |
 | `POOL_TIME_ZONE` | `America/New_York` |
-| `POOL_PASSCODE` | Family dashboard passcode |
 | `POOL_ADMIN_KEY` | Long random server/scheduler secret |
 | `POOL_STORAGE_PROVIDER` | `supabase` |
 | `POOL_SCHEDULE_PROVIDER` | `espn` |

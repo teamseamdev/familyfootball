@@ -3,7 +3,6 @@
   "baseUrl": "http://localhost:4173",
   "timeZone": "America/New_York",
   "publishHour": 18,
-  "dashboardPasscode": "family-demo",
   "adminKey": "local-admin-demo",
   "storageProvider": "json",
   "supabaseUrl": "",

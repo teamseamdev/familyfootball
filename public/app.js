@@ -1,37 +1,46 @@
 const $ = selector => document.querySelector(selector);
 const colors = ['#7FE0B7', '#FFB35B', '#6EC7FF', '#E88CFF', '#FFE16B', '#FF7D86'];
 
-function points(value) { return Number.isInteger(value) ? value : value.toFixed(1); }
+function points(value) { return Number.isInteger(value) ? value : Number(value || 0).toFixed(1); }
 function localDate(value, options = {}) { return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', ...options }).format(new Date(value)); }
+function submittedKey(week) { return `family-pool-submitted-${week.season}-${week.week}`; }
 
 async function load() {
   const [weekResponse, standingsResponse] = await Promise.all([fetch('/api/week'), fetch('/api/standings')]);
-  if (weekResponse.status === 401) return location.assign('/login.html');
   if (!weekResponse.ok || !standingsResponse.ok) throw new Error('Dashboard data could not be loaded.');
   const week = await weekResponse.json();
   const season = await standingsResponse.json();
   render(week, season);
+  populateWeekSelector(season.weeks, week.week);
+  renderWeekRecords(week);
 }
 
 function render(week, season) {
   const environmentBanner = $('#environment-banner');
   if (week.poolMode === 'test') {
     environmentBanner.hidden = false;
-    environmentBanner.innerHTML = '<strong>Test season active</strong><span>These picks are safely stored in Supabase, but they are not the live family season.</span>';
+    environmentBanner.innerHTML = '<strong>Test season active</strong><span>These picks are stored in Supabase, but they are not the live family season.</span>';
   } else if (week.storageMode === 'memory') {
     environmentBanner.hidden = false;
     environmentBanner.innerHTML = '<strong>Live preview mode</strong><span>Picks may reset between visits until Supabase storage is connected.</span>';
   }
-  $('#season-label').textContent = `${season.season} NFL SEASON • WEEK ${season.activeWeek}`;
+  $('#season-label').textContent = `${season.season} NFL SEASON`;
+  $('#summary-week').textContent = `Week ${season.activeWeek}`;
   $('#week-status').textContent = `${week.status.toUpperCase()} • ${week.submissions.length} entries`;
   $('#week-pill').textContent = `Through Week ${season.activeWeek}`;
   $('#week-heading').textContent = `Week ${week.week} matchups`;
-  $('#share-link').href = week.shareUrl || '#';
   $('#mock-form').href = week.shareUrl || '#';
   $('#test-heading').textContent = week.poolMode === 'test' ? `Test Week ${week.week}` : 'Test the season flow';
   $('#mock-finish').disabled = week.poolMode !== 'test' || week.status === 'final' || !week.submissions.length;
   $('#mock-next').disabled = week.poolMode !== 'test' || week.status !== 'final';
   $('#publish-time').textContent = week.timing.publishAt ? localDate(week.timing.publishAt, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Waiting for slate';
+
+  const pickLink = $('#top-pick-link');
+  const submittedHere = localStorage.getItem(submittedKey(week));
+  const formOpen = week.status === 'open' && week.shareUrl && new Date() < new Date(week.picksLockedAt);
+  pickLink.href = week.shareUrl || '#';
+  pickLink.hidden = !formOpen || Boolean(submittedHere);
+  $('#mock-form').hidden = !formOpen || Boolean(submittedHere);
 
   const leader = season.standings[0];
   const finalGames = week.games.filter(game => game.status === 'final').length;
@@ -47,7 +56,6 @@ function render(week, season) {
   $('#leaderboard').innerHTML = season.standings.map((row, index) => `<div class="leader-row ${index === 0 ? 'first' : ''}"><span class="rank">${row.rank}</span><span class="avatar" style="--avatar:${colors[index % colors.length]}">${row.name.slice(0, 1)}</span><span class="player-name">${row.name}<small>${row.weeksPlayed} weeks played</small></span><span class="week-score">+${points(row.current)}<small>this week</small></span><strong>${points(row.total)}<small>PTS</small></strong></div>`).join('');
   renderTrend(season.standings);
   renderGames(week.games, week.submissions);
-  renderGradeAudit(week);
 }
 
 function nextKickoff(games) {
@@ -62,8 +70,8 @@ function renderTrend(rows) {
   const cumulative = shown.map(row => row.trend.reduce((acc, value) => [...acc, (acc.at(-1) || 0) + value], []));
   const max = Math.max(...cumulative.flat(), 1);
   const paths = cumulative.map((values, index) => {
-    const points = values.map((value, i) => `${pad + i * ((width - pad * 2) / Math.max(values.length - 1, 1))},${height - pad - value / max * (height - pad * 2)}`).join(' ');
-    return `<polyline points="${points}" fill="none" stroke="${colors[index]}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const line = values.map((value, i) => `${pad + i * ((width - pad * 2) / Math.max(values.length - 1, 1))},${height - pad - value / max * (height - pad * 2)}`).join(' ');
+    return `<polyline points="${line}" fill="none" stroke="${colors[index]}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
   }).join('');
   const grid = [0, .25, .5, .75, 1].map(level => `<line x1="${pad}" y1="${height - pad - level * (height-pad*2)}" x2="${width-pad}" y2="${height-pad-level*(height-pad*2)}" stroke="#24434e" stroke-width="1"/>`).join('');
   $('#trend-chart').classList.remove('skeleton');
@@ -81,25 +89,36 @@ function renderGames(games, submissions) {
   }).join('');
 }
 
-function renderGradeAudit(week) {
-  const target = $('#grade-audit');
-  if (!week.submissions.length) {
-    target.innerHTML = '<p class="muted empty-audit">No picks yet. Submit a mock entry and return here to inspect its grades.</p>';
-    return;
-  }
+function populateWeekSelector(weeks, selectedWeek) {
+  const selector = $('#records-week');
+  selector.innerHTML = weeks.map(item => `<option value="${item.week}" ${Number(item.week) === Number(selectedWeek) ? 'selected' : ''}>Week ${item.week} • ${item.status}</option>`).join('');
+}
+
+function renderWeekRecords(week) {
+  $('#records-heading').textContent = `Week ${week.week} standings`;
+  const target = $('#week-records');
   const headings = week.games.map(game => `<th title="${game.away} @ ${game.home}">${game.away}<br>@ ${game.home}</th>`).join('');
-  const rows = week.submissions.map(entry => {
+  const byName = new Map(week.submissions.map(entry => [entry.name, entry]));
+  const players = week.players || [...byName.keys()];
+  const rows = players.map(name => {
+    const entry = byName.get(name);
     const cells = week.games.map(game => {
+      if (!entry) return '<td class="grade-pending"><span>—</span><b>—</b></td>';
       const grade = entry.grades?.[game.id] || { result: 'pending', points: null };
       const symbol = { win: 'W', loss: 'L', push: 'P', pending: '—', invalid: '!' }[grade.result] || '—';
-      const picked = entry.picks[game.id] || '—';
       const score = grade.points == null ? '' : `<small>${points(grade.points)}</small>`;
-      return `<td class="grade-${grade.result}" title="${picked}: ${grade.result}"><span>${picked}</span><b>${symbol}</b>${score}</td>`;
+      return `<td class="grade-${grade.result}" title="${entry.picks[game.id]}: ${grade.result}"><span>${entry.picks[game.id]}</span><b>${symbol}</b>${score}</td>`;
     }).join('');
-    return `<tr><th>${entry.name}</th>${cells}<td class="grade-total"><strong>${points(entry.points)}</strong></td></tr>`;
+    return `<tr><th>${name}</th><td class="grade-total"><strong>${entry ? points(entry.points) : '—'}</strong></td>${cells}</tr>`;
   }).join('');
-  target.innerHTML = `<table><thead><tr><th>Player</th>${headings}<th>Total</th></tr></thead><tbody>${rows}</tbody></table>`;
+  target.innerHTML = `<table><thead><tr><th>Player</th><th>Week total</th>${headings}</tr></thead><tbody>${rows}</tbody></table>`;
 }
+
+$('#records-week').addEventListener('change', async event => {
+  const response = await fetch(`/api/week?week=${encodeURIComponent(event.target.value)}`);
+  if (!response.ok) return;
+  renderWeekRecords(await response.json());
+});
 
 async function simulationAction(path, workingMessage) {
   const message = $('#simulation-message');
