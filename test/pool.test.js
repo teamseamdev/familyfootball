@@ -137,7 +137,7 @@ test('scheduled live reset is permanently idempotent after its first run', async
   assert.equal((await fetch(`${base}/api/cron`, { headers })).status, 200);
   const resetState = await app.store.read();
   assert.equal(resetState.mode, 'live');
-  assert.deepEqual(resetState.completedMigrations, ['live-reset:2026:1']);
+  assert.deepEqual(resetState.completedMigrations, ['live-reset:2026:1:sample']);
   resetState.activeWeek = 2;
   resetState.weeks['2'] = { season: 2026, week: 2, games: [], submissions: [] };
   await app.store.write(resetState);
