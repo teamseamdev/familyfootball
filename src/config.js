@@ -21,6 +21,7 @@ export function loadConfig(overrides = {}) {
     fallbackProvider: process.env.POOL_FALLBACK_PROVIDER,
     scoreRefreshMinutes: process.env.POOL_SCORE_REFRESH_MINUTES ? Number(process.env.POOL_SCORE_REFRESH_MINUTES) : undefined,
     simulationEnabled: process.env.POOL_SIMULATION_ENABLED === 'true' ? true : undefined,
+    liveResetTarget: process.env.POOL_LIVE_RESET_TARGET,
     smsProvider: process.env.POOL_SMS_PROVIDER,
     twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
     twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,

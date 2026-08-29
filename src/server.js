@@ -56,6 +56,31 @@ function publicWeek(week, config, players = []) {
   };
 }
 
+async function resetLiveSeason({ store, config, season, weekNumber = 1, provider, manualGames = [] }) {
+  const previous = await store.read();
+  const result = await ingestWeek({ season, week: weekNumber, provider, fallbackProvider: config.fallbackProvider, manualGames });
+  const players = previous.players?.length ? previous.players : ['Moe', 'John', 'Diane', 'Adam'];
+  const clean = {
+    version: 1,
+    mode: 'live',
+    activeSeason: season,
+    activeWeek: weekNumber,
+    players,
+    weeks: {
+      [String(weekNumber)]: {
+        season, week: weekNumber, label: `Week ${weekNumber}`, status: 'draft', source: result.source,
+        spreadCapturedAt: result.capturedAt, shareToken: '', formUrl: '', publishedAt: '', picksLockedAt: '',
+        games: chronological(result.games), submissions: []
+      }
+    },
+    history: Object.fromEntries(players.map(name => [name, []])),
+    audit: []
+  };
+  audit(clean, 'season.reset-live', `Clean ${season} Week ${weekNumber} created from ${result.source}`);
+  await store.write(clean);
+  return { action: 'live-season-reset', week: weekSnapshot(clean.weeks[String(weekNumber)], config), warnings: result.warnings || [], timing: timingSummary(clean.weeks[String(weekNumber)], config) };
+}
+
 export function createPoolServer(overrides = {}) {
   const config = loadConfig(overrides);
   const store = overrides.store || (
@@ -77,6 +102,15 @@ export function createPoolServer(overrides = {}) {
 
       if (request.method === 'GET' && route === '/api/cron') {
         if (!config.cronSecret || request.headers.authorization !== `Bearer ${config.cronSecret}`) return json(response, 403, { error: 'Cron authorization required' });
+        if (config.liveResetTarget) {
+          const match = String(config.liveResetTarget).match(/^(\d{4}):(\d{1,2})$/);
+          if (!match) return json(response, 500, { error: 'POOL_LIVE_RESET_TARGET must use YYYY:WEEK format.' });
+          const season = Number(match[1]);
+          const weekNumber = Number(match[2]);
+          const current = await store.read();
+          const alreadyReset = current.mode === 'live' && Number(current.activeSeason) === season && Number(current.activeWeek) === weekNumber && Object.keys(current.weeks || {}).length === 1;
+          if (!alreadyReset) return json(response, 200, await resetLiveSeason({ store, config, season, weekNumber, provider: config.scheduleProvider }));
+        }
         return json(response, 200, await schedulerTick({ store, config }));
       }
 
@@ -178,32 +212,11 @@ export function createPoolServer(overrides = {}) {
 
       if (request.method === 'POST' && route === '/api/admin/reset-live-season') {
         const input = await body(request);
-        const previous = await store.read();
         const season = Number(input.season);
         const weekNumber = Number(input.week || 1);
         if (!Number.isInteger(season) || season < 2000 || !Number.isInteger(weekNumber) || weekNumber < 1) return json(response, 400, { error: 'A valid season and week are required.' });
         const provider = input.provider || config.scheduleProvider;
-        const result = await ingestWeek({ season, week: weekNumber, provider, fallbackProvider: config.fallbackProvider, manualGames: input.games || [] });
-        const players = previous.players?.length ? previous.players : ['Moe', 'John', 'Diane', 'Adam'];
-        const clean = {
-          version: 1,
-          mode: 'live',
-          activeSeason: season,
-          activeWeek: weekNumber,
-          players,
-          weeks: {
-            [String(weekNumber)]: {
-              season, week: weekNumber, label: `Week ${weekNumber}`, status: 'draft', source: result.source,
-              spreadCapturedAt: result.capturedAt, shareToken: '', formUrl: '', publishedAt: '', picksLockedAt: '',
-              games: chronological(result.games), submissions: []
-            }
-          },
-          history: Object.fromEntries(players.map(name => [name, []])),
-          audit: []
-        };
-        audit(clean, 'season.reset-live', `Clean ${season} Week ${weekNumber} created from ${result.source}`);
-        await store.write(clean);
-        return json(response, 201, { week: weekSnapshot(clean.weeks[String(weekNumber)], config), warnings: result.warnings || [], timing: timingSummary(clean.weeks[String(weekNumber)], config) });
+        return json(response, 201, await resetLiveSeason({ store, config, season, weekNumber, provider, manualGames: input.games || [] }));
       }
 
       if (request.method === 'POST' && route === '/api/admin/ingest') {
