@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { gameChoices, gradePick, standings } from '../src/pool.js';
+import { gameAtsOutcome, gameChoices, gradePick, standings } from '../src/pool.js';
 import { publishTime } from '../src/timing.js';
 import { createPoolServer } from '../src/server.js';
 import { JsonStore } from '../src/store.js';
@@ -16,9 +16,11 @@ test('choice labels show equal and opposite spreads', () => {
 test('ATS grading covers wins, losses, pushes, and tied games', () => {
   const favoriteCovers = { away: 'DEN', home: 'BUF', homeSpread: -3, awayScore: 20, homeScore: 27, status: 'final' };
   assert.deepEqual(gradePick(favoriteCovers, 'BUF'), { result: 'win', points: 1 });
+  assert.deepEqual(gameAtsOutcome(favoriteCovers), { result: 'winner', team: 'BUF' });
   assert.deepEqual(gradePick(favoriteCovers, 'DEN'), { result: 'loss', points: 0 });
   const push = { ...favoriteCovers, awayScore: 20, homeScore: 23 };
   assert.deepEqual(gradePick(push, 'DEN'), { result: 'push', points: 0 });
+  assert.deepEqual(gameAtsOutcome(push), { result: 'push', team: null });
   const tiedPickEm = { ...favoriteCovers, homeSpread: 0, awayScore: 17, homeScore: 17 };
   assert.deepEqual(gradePick(tiedPickEm, 'BUF'), { result: 'push', points: 0 });
 });

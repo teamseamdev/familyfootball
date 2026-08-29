@@ -17,16 +17,20 @@ export function chronological(games) {
   return [...games].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff) || a.id.localeCompare(b.id));
 }
 
-export function gradePick(game, team, pushPoints = 0) {
-  if (game.status !== 'final' || game.awayScore == null || game.homeScore == null) {
-    return { result: 'pending', points: null };
-  }
-  if (team !== game.away && team !== game.home) return { result: 'invalid', points: 0 };
+export function gameAtsOutcome(game) {
+  if (game.status !== 'final' || game.awayScore == null || game.homeScore == null) return { result: 'pending', team: null };
   const homeMargin = Number(game.homeScore) - Number(game.awayScore);
   const coverThreshold = -Number(game.homeSpread);
-  if (homeMargin === coverThreshold) return { result: 'push', points: Number(pushPoints) };
-  const coveringTeam = homeMargin > coverThreshold ? game.home : game.away;
-  return coveringTeam === team ? { result: 'win', points: 1 } : { result: 'loss', points: 0 };
+  if (homeMargin === coverThreshold) return { result: 'push', team: null };
+  return { result: 'winner', team: homeMargin > coverThreshold ? game.home : game.away };
+}
+
+export function gradePick(game, team, pushPoints = 0) {
+  const outcome = gameAtsOutcome(game);
+  if (outcome.result === 'pending') return { result: 'pending', points: null };
+  if (team !== game.away && team !== game.home) return { result: 'invalid', points: 0 };
+  if (outcome.result === 'push') return { result: 'push', points: Number(pushPoints) };
+  return outcome.team === team ? { result: 'win', points: 1 } : { result: 'loss', points: 0 };
 }
 
 export function gradeSubmission(week, submission, pushPoints = 0) {
@@ -46,7 +50,7 @@ export function gradeSubmission(week, submission, pushPoints = 0) {
 
 export function weekSnapshot(week, config = {}) {
   const pushPoints = config.pushPoints ?? 0;
-  const games = chronological(week.games).map(game => ({ ...game, choices: gameChoices(game) }));
+  const games = chronological(week.games).map(game => ({ ...game, choices: gameChoices(game), atsOutcome: gameAtsOutcome(game) }));
   const submissions = week.submissions.map(submission => ({
     ...submission,
     ...gradeSubmission(week, submission, pushPoints)

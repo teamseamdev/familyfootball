@@ -84,8 +84,11 @@ function renderGames(games, submissions) {
     const awayChoice = game.choices[0], homeChoice = game.choices[1];
     const awayPicks = submissions.filter(item => item.picks[game.id] === game.away).length;
     const homePicks = submissions.filter(item => item.picks[game.id] === game.home).length;
-    const result = game.status === 'final' ? `<div class="game-score"><strong>${game.awayScore}</strong><span>FINAL</span><strong>${game.homeScore}</strong></div>` : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
-    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.source || 'pool'}</small></div><div class="teams"><div><strong>${game.away}</strong><span>${awayChoice.label}</span></div>${result}<div class="home"><strong>${game.home}</strong><span>${homeChoice.label}</span></div></div><div class="pick-split"><span style="width:${submissions.length ? awayPicks/submissions.length*100 : 50}%"></span></div><div class="pick-counts"><span>${awayPicks} picks</span><span>${homePicks} picks</span></div></article>`;
+    const awayArrow = game.atsOutcome?.result === 'winner' && game.atsOutcome.team === game.away ? '<i class="winner-arrow away" title="ATS winner" aria-label="ATS winner">←</i>' : '';
+    const homeArrow = game.atsOutcome?.result === 'winner' && game.atsOutcome.team === game.home ? '<i class="winner-arrow home" title="ATS winner" aria-label="ATS winner">→</i>' : '';
+    const push = game.atsOutcome?.result === 'push' ? '<small class="push-label">PUSH</small>' : '';
+    const result = game.status === 'final' ? `<div class="game-result">${push}<div class="game-score"><strong>${game.awayScore}</strong><span>FINAL</span><strong>${game.homeScore}</strong></div></div>` : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
+    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.source || 'pool'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span></div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span></div></div><div class="pick-split"><span style="width:${submissions.length ? awayPicks/submissions.length*100 : 50}%"></span></div><div class="pick-counts"><span>${awayPicks} picks</span><span>${homePicks} picks</span></div></article>`;
   }).join('');
 }
 
