@@ -48,12 +48,15 @@ function render(week, season) {
 
   const leader = season.standings[0];
   const finalGames = week.games.filter(game => game.status === 'final').length;
-  const totalPicks = week.submissions.length * week.games.length;
+  const hasSeasonResults = Number(season.activeWeek) > 1 || finalGames > 0;
+  const topTotal = leader?.total || 0;
+  const tiedLeaders = hasSeasonResults ? season.standings.filter(row => Number(row.total) === Number(topTotal)) : [];
+  const leaderValue = !hasSeasonResults ? 'N/A' : `${tiedLeaders.map(row => row.name).join(' / ')}${tiedLeaders.length > 1 ? ' - Tied' : ''}`;
+  const leaderNote = !hasSeasonResults ? 'No completed games yet' : `${points(topTotal)} season points`;
   $('#stat-grid').innerHTML = [
-    ['Current leader', leader?.name || '—', `${points(leader?.total || 0)} season points`, 'leader'],
-    ['Week progress', `${finalGames}/${week.games.length}`, 'games graded', 'progress'],
-    ['Entries', week.picksRevealed ? week.submissions.length : 'Hidden', week.picksRevealed ? `${totalPicks} picks on file` : 'Reveals when complete or at kickoff', 'entries'],
-    ['Next kickoff', nextKickoff(week.games), nextMatchup(week.games), 'kickoff']
+    ['Current leader', leaderValue, leaderNote, 'leader'],
+    ['Next kickoff', nextKickoff(week.games), nextMatchup(week.games), 'kickoff'],
+    ['Week progress', `${finalGames}/${week.games.length}`, 'games completed', 'progress']
   ].map(([label, value, note, cls]) => `<article class="stat-card ${cls}"><p>${label}</p><strong>${value}</strong><span>${note}</span></article>`).join('');
 
   $('#leaderboard').classList.remove('skeleton');

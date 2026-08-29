@@ -7,6 +7,8 @@
     html,body{max-width:100%;overflow-x:hidden}
     .topbar,.shell,.dashboard-section,.content-grid{min-width:0;max-width:100%}
     .shell{width:100%}
+    .stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .content-grid{grid-template-columns:1fr}
     .nav{min-width:0;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
     .nav::-webkit-scrollbar{display:none}
     .grade-audit{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
@@ -21,7 +23,8 @@
     .submission-status span{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
     .submission-status i{display:inline-grid;place-items:center;width:24px;height:24px;margin-left:5px;border-radius:50%;background:color-mix(in srgb,var(--avatar) 22%,#0d2a34);border:1px solid color-mix(in srgb,var(--avatar) 48%,transparent);color:var(--avatar);font-size:10px;font-style:normal;font-weight:900}
     .submission-status.complete{border-color:#2d8063;background:#102f29}
-    @media(max-width:600px){.game-card,.teams{min-width:0}.teams{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}}
+    @media(max-width:980px){.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:600px){.stat-grid{grid-template-columns:1fr}.game-card,.teams{min-width:0}.teams{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}}
   </style>
 </head>
 <body>
