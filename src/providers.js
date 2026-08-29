@@ -43,17 +43,31 @@ export function normalizeEspnEvent(event) {
 
 export async function fetchEspnWeek(season, week, fetchImpl = fetch) {
   const params = new URLSearchParams({ dates: String(season), seasontype: '2', week: String(week), limit: '100' });
-  const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?${params}`;
-  const response = await fetchImpl(url, { headers: {
+  const headers = {
     accept: 'application/json, text/plain, */*',
     'accept-language': 'en-US,en;q=0.9',
     origin: 'https://www.espn.com',
     referer: 'https://www.espn.com/',
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/127.0 Safari/537.36'
-  } });
-  if (!response.ok) throw new Error(`ESPN returned ${response.status}`);
-  const data = await response.json();
-  const games = (data.events || []).map(normalizeEspnEvent).filter(Boolean);
+  };
+  const urls = [
+    `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?${params}`,
+    `https://cdn.espn.com/core/nfl/scoreboard?xhr=1&${params}`
+  ];
+  let data;
+  const failures = [];
+  for (const url of urls) {
+    const response = await fetchImpl(url, { headers });
+    if (!response.ok) {
+      failures.push(`${new URL(url).host} ${response.status}`);
+      continue;
+    }
+    data = await response.json();
+    break;
+  }
+  if (!data) throw new Error(`ESPN returned no usable response (${failures.join(', ')})`);
+  const events = data.events || data.content?.sbData?.events || [];
+  const games = events.map(normalizeEspnEvent).filter(Boolean);
   if (!games.length) throw new Error(`ESPN returned no NFL games for ${season} week ${week}`);
   const invalidScores = games.filter(game => game.status === 'final' && (!Number.isInteger(game.awayScore) || !Number.isInteger(game.homeScore)));
   if (invalidScores.length) throw new Error(`ESPN returned a non-integer NFL score for ${invalidScores.map(game => `${game.away} @ ${game.home}`).join(', ')}`);

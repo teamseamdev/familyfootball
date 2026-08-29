@@ -7,10 +7,20 @@ import { gameAtsOutcome, gameChoices, gradePick, picksAreRevealed, standings } f
 import { publishTime } from '../src/timing.js';
 import { createPoolServer } from '../src/server.js';
 import { JsonStore } from '../src/store.js';
+import { fetchEspnWeek } from '../src/providers.js';
 
 test('choice labels show equal and opposite spreads', () => {
   const choices = gameChoices({ away: 'DEN', home: 'BUF', homeSpread: -3 });
   assert.deepEqual(choices, [{ team: 'DEN', label: 'DEN +3' }, { team: 'BUF', label: 'BUF -3' }]);
+});
+
+test('ESPN ingestion falls back to the CDN scoreboard when the primary host is blocked', async () => {
+  const event = { id: 'g1', date: '2030-09-08T17:00:00Z', competitions: [{ status: { type: { completed: false } }, competitors: [{ homeAway: 'away', team: { abbreviation: 'DEN', displayName: 'Denver Broncos' } }, { homeAway: 'home', team: { abbreviation: 'BUF', displayName: 'Buffalo Bills' } }], odds: [{ spread: -3, details: 'BUF -3', homeTeamOdds: { favorite: true }, awayTeamOdds: { favorite: false } }] }] };
+  let calls = 0;
+  const fetchImpl = async () => ++calls === 1 ? { ok: false, status: 403 } : { ok: true, json: async () => ({ content: { sbData: { events: [event] } } }) };
+  const result = await fetchEspnWeek(2030, 1, fetchImpl);
+  assert.equal(calls, 2);
+  assert.equal(result.games[0].homeSpread, -3);
 });
 
 test('ATS grading covers wins, losses, pushes, and tied games', () => {
