@@ -66,6 +66,7 @@ export function createPoolServer(overrides = {}) {
         : new JsonStore(config.dataFile)
   );
   const admin = request => request.headers['x-admin-key'] === config.adminKey;
+  const cronAuthorized = request => Boolean(config.cronSecret) && request.headers.authorization === `Bearer ${config.cronSecret}`;
 
   const handler = async (request, response) => {
     try {
@@ -173,7 +174,7 @@ export function createPoolServer(overrides = {}) {
         return json(response, 201, { ok: true, week: weekSnapshot(week, config), shareUrl: week.formUrl });
       }
 
-      if (route.startsWith('/api/admin/') && !admin(request)) return json(response, 403, { error: 'Admin key required' });
+      if (route.startsWith('/api/admin/') && !admin(request) && !(route === '/api/admin/reset-live-season' && cronAuthorized(request))) return json(response, 403, { error: 'Admin key required' });
 
       if (request.method === 'POST' && route === '/api/admin/reset-live-season') {
         const input = await body(request);

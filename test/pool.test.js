@@ -88,7 +88,7 @@ test('full local flow: form, submission, result grading, and standings', async t
   assert.equal(standings(store.read(), { pushPoints: 0 })[0].total, 1);
 
   const cleanGame = { id: 'new-g1', kickoff, away: 'KC', home: 'DEN', homeSpread: 1.5, status: 'scheduled', awayScore: null, homeScore: null, source: 'manual' };
-  const liveReset = await fetch(`${base}/api/admin/reset-live-season`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ season: 2031, week: 1, provider: 'manual', games: [cleanGame] }) });
+  const liveReset = await fetch(`${base}/api/admin/reset-live-season`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer test-cron' }, body: JSON.stringify({ season: 2031, week: 1, provider: 'manual', games: [cleanGame] }) });
   assert.equal(liveReset.status, 201);
   const cleanState = store.read();
   assert.equal(cleanState.mode, 'live');
