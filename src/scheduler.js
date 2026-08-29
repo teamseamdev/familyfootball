@@ -37,6 +37,14 @@ export async function schedulerTick({ store, config, now = new Date() }) {
   const state = await store.read();
   const week = state.weeks[String(state.activeWeek)];
   if (!week || !week.games?.length) return { action: 'none' };
+  if (week.source === 'espn' && week.games.some(game => !Object.hasOwn(game, 'broadcast'))) {
+    const fresh = await fetchEspnWeek(week.season, week.week);
+    for (const update of fresh.games) {
+      const game = week.games.find(item => item.id === update.id);
+      if (game) game.broadcast = update.broadcast || null;
+    }
+    await store.write(state);
+  }
   if (week.publishedAt && week.source === 'espn' && week.status !== 'final' && now >= new Date(week.picksLockedAt || week.games[0].kickoff)) {
     const lastRefresh = week.lastScoreRefreshAt ? new Date(week.lastScoreRefreshAt) : new Date(0);
     if (now - lastRefresh >= Number(config.scoreRefreshMinutes || 5) * 60_000) {
@@ -49,6 +57,7 @@ export async function schedulerTick({ store, config, now = new Date() }) {
         game.status = update.status;
         game.awayScore = update.awayScore;
         game.homeScore = update.homeScore;
+        game.broadcast = update.broadcast || game.broadcast || null;
         if (update.homeSpread != null && game.homeSpread == null) game.homeSpread = update.homeSpread;
       }
       week.lastScoreRefreshAt = now.toISOString();

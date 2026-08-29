@@ -70,7 +70,10 @@ function nextKickoff(games) {
   const next = games.find(game => game.status !== 'final');
   return next ? localDate(next.kickoff, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'Complete';
 }
-function nextMatchup(games) { const next = games.find(game => game.status !== 'final'); return next ? `${next.away} @ ${next.home}` : 'All games final'; }
+function nextMatchup(games) {
+  const next = games.find(game => game.status !== 'final');
+  return next ? `${next.away} @ ${next.home} • ${next.broadcast || 'TV TBD'}` : 'All games final';
+}
 
 function renderTrend(rows, players) {
   const shown = rows.slice(0, 4);
@@ -110,7 +113,7 @@ function renderGames(games, submissions, players, picksVisible) {
     const result = game.status === 'final' ? `<div class="game-result">${push}<div class="game-score"><strong>${game.awayScore}</strong><span>FINAL</span><strong>${game.homeScore}</strong></div></div>` : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
     const marker = entry => `<span class="pick-avatar" style="--avatar:${playerColor(entry.name, players)}" title="${entry.name}" aria-label="${entry.name}">${entry.name.slice(0, 1)}</span>`;
     const pickDisplay = picksVisible ? `<div class="team-picks"><div>${awayPicks.map(marker).join('')}</div><div>${homePicks.map(marker).join('')}</div></div>` : '<div class="picks-hidden">Selections hidden until all four entries are in or kickoff begins.</div>';
-    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.source || 'pool'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span></div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span></div></div>${pickDisplay}</article>`;
+    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.broadcast || 'TV TBD'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span></div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span></div></div>${pickDisplay}</article>`;
   }).join('');
 }
 

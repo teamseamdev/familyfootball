@@ -19,6 +19,11 @@ function homeSpreadFromOdds(competition) {
   return magnitude === 0 ? 0 : null;
 }
 
+function broadcastFromCompetition(competition) {
+  const names = (competition.broadcasts || []).flatMap(item => item.names || item.name || []).filter(Boolean);
+  return [...new Set(names)].join(' / ') || null;
+}
+
 export function normalizeEspnEvent(event) {
   const competition = event.competitions?.[0];
   const home = competitor(competition || {}, 'home');
@@ -37,6 +42,7 @@ export function normalizeEspnEvent(event) {
     awayScore: completed ? Number(away.score) : null,
     homeScore: completed ? Number(home.score) : null,
     source: 'espn',
+    broadcast: broadcastFromCompetition(competition),
     spreadDetails: competition.odds?.[0]?.details || null
   };
 }
@@ -53,7 +59,11 @@ async function fetchEspnCoreWeek(season, week, fetchImpl, headers) {
   const games = await Promise.all((list.items || []).map(async item => {
     const event = await fetchJson(item.$ref);
     const competition = await fetchJson(event.competitions?.[0]?.$ref);
-    const [status, oddsList] = await Promise.all([fetchJson(competition.status?.$ref), fetchJson(competition.odds?.$ref)]);
+    const [status, oddsList, broadcastList] = await Promise.all([
+      fetchJson(competition.status?.$ref),
+      fetchJson(competition.odds?.$ref),
+      competition.broadcasts?.$ref ? fetchJson(competition.broadcasts.$ref).catch(() => ({ items: [] })) : { items: [] }
+    ]);
     const [away, home] = String(event.shortName || '').split(/\s+(?:@|VS)\s+/i);
     const [awayName, homeName] = String(event.name || '').split(/\s+(?:at|vs\.?)\s+/i);
     const homeId = String(competition.competitors?.[0]?.$ref || '').match(/competitors\/(\d+)/)?.[1];
@@ -72,7 +82,9 @@ async function fetchEspnCoreWeek(season, week, fetchImpl, headers) {
       id: String(event.id), kickoff: event.date, away, home, awayName, homeName,
       homeSpread: odds?.spread == null ? null : Number(odds.spread),
       status: completed ? 'final' : state === 'in' ? 'live' : 'scheduled',
-      awayScore, homeScore, source: 'espn', spreadDetails: odds?.details || null
+      awayScore, homeScore, source: 'espn',
+      broadcast: [...new Set((broadcastList.items || []).map(item => item.station || item.media?.shortName || item.media?.name).filter(Boolean))].join(' / ') || null,
+      spreadDetails: odds?.details || null
     };
   }));
   return games.filter(game => game.id && game.away && game.home);
