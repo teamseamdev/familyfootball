@@ -111,7 +111,8 @@ export function createPoolServer(overrides = {}) {
   const handler = async (request, response) => {
     try {
       const url = new URL(request.url, config.baseUrl);
-      const route = url.pathname;
+      const rewrittenRoute = url.searchParams.get('__route');
+      const route = rewrittenRoute == null ? url.pathname : `/${rewrittenRoute.replace(/^\/+/, '')}`;
 
       if (request.method === 'GET' && route === '/health') return json(response, 200, { ok: true, service: 'family-nfl-pool', now: new Date().toISOString() });
 

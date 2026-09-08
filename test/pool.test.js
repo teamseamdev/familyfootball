@@ -14,6 +14,16 @@ test('choice labels show equal and opposite spreads', () => {
   assert.deepEqual(choices, [{ team: 'DEN', label: 'DEN +3' }, { team: 'BUF', label: 'BUF -3' }]);
 });
 
+test('Vercel rewrite preserves the original API route', async t => {
+  const dataFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pool-route-')), 'pool.json');
+  const app = createPoolServer({ dataFile, storageProvider: 'json', port: 0 });
+  const address = await app.start(0);
+  t.after(() => app.stop());
+  const response = await fetch(`http://127.0.0.1:${address.port}/api/index?__route=health`);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).service, 'family-nfl-pool');
+});
+
 test('ESPN ingestion falls back to the CDN scoreboard and includes its TV network', async () => {
   const event = { id: 'g1', date: '2030-09-08T17:00:00Z', competitions: [{ status: { type: { completed: false } }, competitors: [{ homeAway: 'away', team: { abbreviation: 'DEN', displayName: 'Denver Broncos' } }, { homeAway: 'home', team: { abbreviation: 'BUF', displayName: 'Buffalo Bills' } }], broadcasts: [{ market: 'national', names: ['CBS'] }], odds: [{ spread: -3, details: 'BUF -3', homeTeamOdds: { favorite: true }, awayTeamOdds: { favorite: false } }] }] };
   let calls = 0;
