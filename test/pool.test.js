@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { formStatusLabel, gameAtsOutcome, gameChoices, gradePick, picksAreRevealed, standings } from '../src/pool.js';
+import { formStatusLabel, gameAtsOutcome, gameChoices, gamePicksAreRevealed, gradePick, picksAreRevealed, standings } from '../src/pool.js';
 import { publishTime } from '../src/timing.js';
 import { createPoolServer } from '../src/server.js';
 import { JsonStore } from '../src/store.js';
@@ -46,13 +46,20 @@ test('ATS grading covers wins, losses, pushes, and tied games', () => {
   assert.deepEqual(gradePick(tiedPickEm, 'BUF'), { result: 'push', points: 0 });
 });
 
-test('picks remain private until all players submit, kickoff arrives, or games start', () => {
+test('picks reveal independently when everyone picks a game or that game starts', () => {
   const kickoff = '2030-09-08T17:00:00.000Z';
-  const week = { status: 'open', picksLockedAt: kickoff, games: [{ status: 'scheduled' }], submissions: [{ name: 'Moe' }, { name: 'John' }] };
+  const laterKickoff = '2030-09-09T17:00:00.000Z';
+  const first = { id: 'g1', kickoff, status: 'scheduled' };
+  const later = { id: 'g2', kickoff: laterKickoff, status: 'scheduled' };
+  const week = { status: 'open', picksLockedAt: kickoff, games: [first, later], submissions: [{ name: 'Moe', picks: { g1: 'A' } }, { name: 'John', picks: { g1: 'A' } }] };
   const players = ['Moe', 'John', 'Diane', 'Adam'];
   assert.equal(picksAreRevealed(week, players, new Date('2030-09-07T17:00:00.000Z')), false);
-  assert.equal(picksAreRevealed({ ...week, submissions: players.map(name => ({ name })) }, players, new Date('2030-09-07T17:00:00.000Z')), true);
-  assert.equal(picksAreRevealed(week, players, new Date(kickoff)), true);
+  const allPickedFirst = { ...week, submissions: players.map(name => ({ name, picks: { g1: 'A' } })) };
+  assert.equal(gamePicksAreRevealed(first, allPickedFirst, players, new Date('2030-09-07T17:00:00.000Z')), true);
+  assert.equal(gamePicksAreRevealed(later, allPickedFirst, players, new Date(kickoff)), false);
+  assert.equal(gamePicksAreRevealed(first, week, players, new Date(kickoff)), true);
+  assert.equal(picksAreRevealed(week, players, new Date(kickoff)), false);
+  assert.equal(picksAreRevealed(week, players, new Date(laterKickoff)), true);
   assert.equal(picksAreRevealed({ ...week, status: 'final' }, players, new Date('2030-09-07T17:00:00.000Z')), true);
 });
 
@@ -72,9 +79,10 @@ test('full local flow: form, submission, result grading, and standings', async t
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'family-pool-'));
   const store = new JsonStore(path.join(temp, 'pool.json'));
   const kickoff = new Date(Date.now() + 86400000).toISOString();
+  const pastKickoff = new Date(Date.now() - 60000).toISOString();
   store.write({
     version: 1, activeSeason: 2030, activeWeek: 1, players: ['Jordan'], history: {}, audit: [],
-    weeks: { '1': { season: 2030, week: 1, label: 'Week 1', status: 'open', source: 'test', spreadCapturedAt: new Date().toISOString(), shareToken: 'test-link', formUrl: '', publishedAt: new Date().toISOString(), picksLockedAt: kickoff, games: [{ id: 'g1', kickoff, away: 'DEN', home: 'BUF', homeSpread: -3, status: 'scheduled', awayScore: null, homeScore: null, source: 'test' }], submissions: [] } }
+    weeks: { '1': { season: 2030, week: 1, label: 'Week 1', status: 'open', source: 'test', spreadCapturedAt: new Date().toISOString(), shareToken: 'test-link', formUrl: '', publishedAt: new Date().toISOString(), picksLockedAt: pastKickoff, games: [{ id: 'g0', kickoff: pastKickoff, away: 'KC', home: 'DEN', homeSpread: 1.5, status: 'scheduled', awayScore: null, homeScore: null, source: 'test' }, { id: 'g1', kickoff, away: 'DEN', home: 'BUF', homeSpread: -3, status: 'scheduled', awayScore: null, homeScore: null, source: 'test' }], submissions: [] } }
   });
   const app = createPoolServer({ store, port: 0, baseUrl: 'http://127.0.0.1', adminKey: 'test-admin', cronSecret: 'test-cron' });
   const address = await app.start(0);
@@ -94,7 +102,9 @@ test('full local flow: form, submission, result grading, and standings', async t
 
   const form = await fetch(`${base}/api/public/week/test-link`);
   assert.equal(form.status, 200);
-  assert.equal((await form.json()).games[0].choices[0].label, 'DEN +3');
+  const formData = await form.json();
+  assert.equal(formData.games[0].pickable, false);
+  assert.equal(formData.games[1].choices[0].label, 'DEN +3');
 
   const rejected = await fetch(`${base}/api/public/week/test-link/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Not Registered', picks: { g1: 'BUF' } }) });
   assert.equal(rejected.status, 400);
@@ -105,6 +115,7 @@ test('full local flow: form, submission, result grading, and standings', async t
 
   const submitted = await fetch(`${base}/api/public/week/test-link/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Jordan', picks: { g1: 'BUF' } }) });
   assert.equal(submitted.status, 201);
+  assert.deepEqual(store.read().weeks['1'].submissions[0].picks, { g1: 'BUF' });
 
   const unsafeRemoval = await fetch(`${base}/api/admin/players`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ players: ['Alex'] }) });
   assert.equal(unsafeRemoval.status, 409);
@@ -146,7 +157,8 @@ test('full multi-week test flow: reset, picks, grade, and advance', async t => {
   assert.equal(submitted.status, 201);
   const privateWeek = await (await fetch(`${base}/api/week`)).json();
   assert.equal(privateWeek.picksRevealed, false);
-  assert.equal(privateWeek.submissions.length, 0);
+  assert.equal(privateWeek.submissions.length, 1);
+  assert.deepEqual(privateWeek.submissions[0].picks, {});
   assert.deepEqual(privateWeek.pendingPlayers, ['John', 'Diane', 'Adam', 'Connor', 'Kohen']);
   assert.equal(privateWeek.canSimulate, true);
   const finished = await fetch(`${base}/api/simulation/finish`, { method: 'POST' });

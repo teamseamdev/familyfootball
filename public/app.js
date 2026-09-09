@@ -63,7 +63,7 @@ function render(week, season) {
   $('#leaderboard').innerHTML = season.standings.map((row, index) => `<div class="leader-row ${index === 0 ? 'first' : ''}"><span class="rank">${row.rank}</span><span class="avatar" style="--avatar:${playerColor(row.name, week.players)}">${row.name.slice(0, 1)}</span><span class="player-name">${row.name}<small>${row.weeksPlayed} weeks played</small></span><span class="week-score">+${points(row.current)}<small>this week</small></span><strong>${points(row.total)}<small>PTS</small></strong></div>`).join('');
   renderTrend(season.standings, week.players);
   renderSubmissionStatus(week);
-  renderGames(week.games, week.submissions, week.players, week.picksRevealed);
+  renderGames(week.games, week.submissions, week.players);
 }
 
 function nextKickoff(games) {
@@ -102,7 +102,7 @@ function renderSubmissionStatus(week) {
   target.innerHTML = `<strong>Still waiting on</strong><span>${pending.map(name => `<i style="--avatar:${playerColor(name, week.players)}">${name.slice(0, 1)}</i>${name}`).join('')}</span>`;
 }
 
-function renderGames(games, submissions, players, picksVisible) {
+function renderGames(games, submissions, players) {
   $('#games').innerHTML = games.map(game => {
     const awayChoice = game.choices[0], homeChoice = game.choices[1];
     const awayPicks = submissions.filter(item => item.picks[game.id] === game.away);
@@ -112,7 +112,7 @@ function renderGames(games, submissions, players, picksVisible) {
     const push = game.atsOutcome?.result === 'push' ? '<small class="push-label">PUSH</small>' : '';
     const result = game.status === 'final' ? `<div class="game-result">${push}<div class="game-score"><strong>${game.awayScore}</strong><span>FINAL</span><strong>${game.homeScore}</strong></div></div>` : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
     const marker = entry => `<span class="pick-avatar" style="--avatar:${playerColor(entry.name, players)}" title="${entry.name}" aria-label="${entry.name}">${entry.name.slice(0, 1)}</span>`;
-    const pickDisplay = picksVisible ? `<div class="team-picks"><div>${awayPicks.map(marker).join('')}</div><div>${homePicks.map(marker).join('')}</div></div>` : `<div class="picks-hidden">Selections hidden until all ${players.length} entries are in or kickoff begins.</div>`;
+    const pickDisplay = game.picksRevealed ? `<div class="team-picks"><div>${awayPicks.map(marker).join('')}</div><div>${homePicks.map(marker).join('')}</div></div>` : `<div class="picks-hidden">Selections hidden until all ${players.length} entries are in or this game kicks off.</div>`;
     return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.broadcast || 'TV TBD'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span></div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span></div></div>${pickDisplay}</article>`;
   }).join('');
 }
@@ -125,10 +125,6 @@ function populateWeekSelector(weeks, selectedWeek) {
 function renderWeekRecords(week) {
   $('#records-heading').textContent = `Week ${week.week} standings`;
   const target = $('#week-records');
-  if (!week.picksRevealed) {
-    target.innerHTML = `<p class="picks-hidden standings-hidden">Selections and weekly results will appear after all ${week.players.length} entries are in or kickoff begins.</p>`;
-    return;
-  }
   const headings = week.games.map(game => `<th title="${game.away} @ ${game.home}">${game.away}<br>@ ${game.home}</th>`).join('');
   const byName = new Map(week.submissions.map(entry => [entry.name, entry]));
   const players = week.players || [...byName.keys()];
@@ -136,7 +132,9 @@ function renderWeekRecords(week) {
   const rows = players.map(name => {
     const entry = byName.get(name);
     const cells = week.games.map(game => {
+      if (!game.picksRevealed) return '<td class="grade-pending" title="Picks hidden until this game begins"><span>🔒</span><b>—</b></td>';
       if (!entry) return '<td class="grade-pending"><span>—</span><b>—</b></td>';
+      if (!entry.picks?.[game.id]) return '<td class="grade-pending" title="No pick submitted before kickoff"><span>—</span><b>—</b></td>';
       const grade = entry.grades?.[game.id] || { result: 'pending', points: null };
       const symbol = { win: 'W', loss: 'L', push: 'P', pending: '—', invalid: '!' }[grade.result] || '—';
       const score = grade.points == null ? '' : `<small>${points(grade.points)}</small>`;

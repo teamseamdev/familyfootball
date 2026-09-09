@@ -13,11 +13,13 @@ async function load() {
   const week = await response.json();
   loadedWeek = week;
   document.querySelector('#pick-title').textContent = `Week ${week.week} picks`;
-  document.querySelector('#pick-note').textContent = `Spreads captured ${when(week.spreadCapturedAt)}. Picks lock ${when(week.picksLockedAt)}.`;
+  document.querySelector('#pick-note').textContent = `Each game locks at its listed kickoff. Games already underway are no longer available.`;
   const submitted = new Set(week.submittedPlayers || []);
   document.querySelector('#player-name').innerHTML = `<option value="">Choose your name</option>${week.players.map(name => `<option value="${name}" ${submitted.has(name) ? 'disabled' : ''}>${name}${submitted.has(name) ? ' — already submitted' : ''}</option>`).join('')}`;
-  gameContainer.innerHTML = week.games.map((game, index) => `<fieldset class="pick-game"><legend><span>${String(index + 1).padStart(2, '0')}</span><strong>${game.away} @ ${game.home}</strong><small>${when(game.kickoff)}</small></legend><div class="choice-grid">${game.choices.map(choice => `<label class="pick-choice"><input type="radio" name="${game.id}" value="${choice.team}" required><span><b>${choice.team}</b><small>${choice.label.replace(choice.team, '').trim()}</small></span></label>`).join('')}</div></fieldset>`).join('');
-  form.dataset.games = JSON.stringify(week.games.map(game => game.id));
+  const available = week.games.filter(game => game.pickable);
+  gameContainer.innerHTML = available.length ? available.map((game, index) => `<fieldset class="pick-game"><legend><span>${String(index + 1).padStart(2, '0')}</span><strong>${game.away} @ ${game.home}</strong><small>${when(game.kickoff)}</small></legend><div class="choice-grid">${game.choices.map(choice => `<label class="pick-choice"><input type="radio" name="${game.id}" value="${choice.team}" required><span><b>${choice.team}</b><small>${choice.label.replace(choice.team, '').trim()}</small></span></label>`).join('')}</div></fieldset>`).join('') : '<p class="error-message">All games for this week have started. Picks are closed.</p>';
+  form.dataset.games = JSON.stringify(available.map(game => game.id));
+  if (!available.length) form.querySelector('button').disabled = true;
 }
 
 form.addEventListener('submit', async event => {

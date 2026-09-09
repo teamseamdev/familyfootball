@@ -17,6 +17,24 @@ export function chronological(games) {
   return [...games].sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff) || a.id.localeCompare(b.id));
 }
 
+export function gameHasStarted(game, now = new Date()) {
+  return game.status === 'live' || game.status === 'final' || now >= new Date(game.kickoff);
+}
+
+export function pickableGames(week, now = new Date()) {
+  return chronological(week.games || []).filter(game => !gameHasStarted(game, now));
+}
+
+export function gamePicksAreRevealed(game, week, players = [], now = new Date()) {
+  if (week.status === 'final') return true;
+  if (gameHasStarted(game, now)) return true;
+  if (!players.length) return false;
+  return players.every(name => {
+    const submission = (week.submissions || []).find(item => item.name.toLowerCase() === name.toLowerCase());
+    return Boolean(submission?.picks?.[game.id]);
+  });
+}
+
 export function gameAtsOutcome(game) {
   if (game.status !== 'final' || game.awayScore == null || game.homeScore == null) return { result: 'pending', team: null };
   if (!Number.isInteger(Number(game.awayScore)) || !Number.isInteger(Number(game.homeScore))) return { result: 'invalid', team: null };
@@ -108,11 +126,7 @@ export function overallTotalsThroughWeek(state, throughWeek, config = {}) {
 }
 
 export function picksAreRevealed(week, players = [], now = new Date()) {
-  const submitted = new Set((week.submissions || []).map(item => item.name.toLowerCase()));
-  const allSubmitted = players.length > 0 && players.every(name => submitted.has(name.toLowerCase()));
-  const kickoffReached = Boolean(week.picksLockedAt) && now >= new Date(week.picksLockedAt);
-  const gameStarted = week.status === 'live' || week.status === 'final' || (week.games || []).some(game => game.status === 'live' || game.status === 'final');
-  return allSubmitted || kickoffReached || gameStarted;
+  return Boolean(week.games?.length) && week.games.every(game => gamePicksAreRevealed(game, week, players, now));
 }
 
 export function formStatusLabel(week, { picksRevealed = false, acceptingSubmissions = false } = {}) {
@@ -121,9 +135,9 @@ export function formStatusLabel(week, { picksRevealed = false, acceptingSubmissi
   return `Week ${week.week} Form Closed`;
 }
 
-export function validatePicks(week, picks) {
+export function validatePicks(week, picks, games = week.games) {
   const errors = [];
-  for (const game of week.games) {
+  for (const game of games) {
     if (!picks[game.id]) errors.push(`Missing pick for ${game.away} @ ${game.home}`);
     else if (![game.away, game.home].includes(picks[game.id])) errors.push(`Invalid pick for ${game.away} @ ${game.home}`);
   }

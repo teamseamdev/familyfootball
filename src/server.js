@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './config.js';
 import { JsonStore, audit } from './store.js';
-import { chronological, formStatusLabel, gameChoices, overallTotalsThroughWeek, picksAreRevealed, standings, validatePicks, weekSnapshot } from './pool.js';
+import { chronological, formStatusLabel, gameHasStarted, gamePicksAreRevealed, overallTotalsThroughWeek, pickableGames, picksAreRevealed, standings, validatePicks, weekSnapshot } from './pool.js';
 import { ingestWeek } from './providers.js';
 import { publishWeek, schedulerTick, startScheduler } from './scheduler.js';
 import { timingSummary } from './timing.js';
@@ -53,7 +53,7 @@ function publicWeek(week, config, players = []) {
     picksLockedAt: snapshot.picksLockedAt,
     players,
     submittedPlayers: snapshot.submissions.map(submission => submission.name),
-    games: snapshot.games.map(({ awayScore, homeScore, status, ...game }) => game)
+    games: snapshot.games.map(({ awayScore, homeScore, status, ...game }) => ({ ...game, pickable: !gameHasStarted({ ...game, status }) }))
   };
 }
 
@@ -153,10 +153,16 @@ export function createPoolServer(overrides = {}) {
         if (!name) return json(response, 400, { error: 'Choose one of the registered players.' });
         const existing = week.submissions.find(item => item.name.toLowerCase() === name.toLowerCase());
         if (existing) return json(response, 409, { error: `${name} already submitted picks for Week ${week.week}. Only the first submission is accepted.` });
-        if (new Date() >= new Date(week.picksLockedAt)) return json(response, 409, { error: 'Picks are locked because the first game has started.' });
-        const errors = validatePicks(week, input.picks || {});
+        const now = new Date();
+        const available = pickableGames(week, now);
+        if (!available.length) return json(response, 409, { error: 'Picks are closed because the final game of the week has started.' });
+        const lockedIds = new Set((week.games || []).filter(game => gameHasStarted(game, now)).map(game => game.id));
+        if (Object.keys(input.picks || {}).some(id => lockedIds.has(id))) return json(response, 409, { error: 'A game started while you were picking. Refresh the form to pick the remaining games.' });
+        const errors = validatePicks(week, input.picks || {}, available);
         if (errors.length) return json(response, 400, { error: errors.join(' ') });
-        const submission = { id: crypto.randomUUID(), name, submittedAt: new Date().toISOString(), picks: input.picks };
+        const allowedIds = new Set(available.map(game => game.id));
+        const picks = Object.fromEntries(Object.entries(input.picks || {}).filter(([id]) => allowedIds.has(id)));
+        const submission = { id: crypto.randomUUID(), name, submittedAt: now.toISOString(), picks };
         week.submissions.push(submission);
         audit(state, 'picks.submitted', `${name} submitted Week ${week.week}`);
         await store.write(state);
@@ -177,12 +183,19 @@ export function createPoolServer(overrides = {}) {
         if (!week) return json(response, 404, { error: `Week ${number} not found` });
         const shareUrl = week.formUrl || (week.shareToken ? `${config.baseUrl.replace(/\/$/, '')}/p/${week.shareToken}` : '');
         const players = state.players || [];
-        const picksRevealed = picksAreRevealed(week, players);
+        const now = new Date();
+        const picksRevealed = picksAreRevealed(week, players, now);
         const snapshot = weekSnapshot(week, config);
-        if (!picksRevealed) snapshot.submissions = [];
+        const revealedIds = new Set(snapshot.games.filter(game => gamePicksAreRevealed(game, week, players, now)).map(game => game.id));
+        snapshot.games = snapshot.games.map(game => ({ ...game, picksRevealed: revealedIds.has(game.id) }));
+        snapshot.submissions = snapshot.submissions.map(submission => ({
+          ...submission,
+          picks: Object.fromEntries(Object.entries(submission.picks || {}).filter(([id]) => revealedIds.has(id))),
+          grades: Object.fromEntries(Object.entries(submission.grades || {}).filter(([id]) => revealedIds.has(id)))
+        }));
         const submittedNames = new Set((week.submissions || []).map(item => item.name.toLowerCase()));
         const pendingPlayers = players.filter(name => !submittedNames.has(name.toLowerCase()));
-        const acceptingSubmissions = week.status === 'open' && new Date() < new Date(week.picksLockedAt) && players.some(name => !submittedNames.has(name.toLowerCase()));
+        const acceptingSubmissions = Boolean(week.publishedAt) && pickableGames(week, now).length > 0 && players.some(name => !submittedNames.has(name.toLowerCase()));
         const formStatus = formStatusLabel(week, { picksRevealed, acceptingSubmissions });
         return json(response, 200, { ...snapshot, players, pendingPlayers, picksRevealed, acceptingSubmissions, formStatus, canSimulate: (week.submissions || []).length > 0, overallTotals: overallTotalsThroughWeek(state, number, config), timing: timingSummary(week, config), shareUrl, storageMode: config.storageProvider, poolMode: state.mode || 'live' });
       }
