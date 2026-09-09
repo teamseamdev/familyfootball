@@ -94,7 +94,7 @@ function renderSubmissionStatus(week) {
   const pending = week.pendingPlayers || [];
   const target = $('#submission-status');
   if (!pending.length) {
-    target.innerHTML = '<strong>Everyone is in</strong><span>All four weekly submissions have been received.</span>';
+    target.innerHTML = `<strong>Everyone is in</strong><span>All ${week.players.length} weekly submissions have been received.</span>`;
     target.classList.add('complete');
     return;
   }
@@ -112,7 +112,7 @@ function renderGames(games, submissions, players, picksVisible) {
     const push = game.atsOutcome?.result === 'push' ? '<small class="push-label">PUSH</small>' : '';
     const result = game.status === 'final' ? `<div class="game-result">${push}<div class="game-score"><strong>${game.awayScore}</strong><span>FINAL</span><strong>${game.homeScore}</strong></div></div>` : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
     const marker = entry => `<span class="pick-avatar" style="--avatar:${playerColor(entry.name, players)}" title="${entry.name}" aria-label="${entry.name}">${entry.name.slice(0, 1)}</span>`;
-    const pickDisplay = picksVisible ? `<div class="team-picks"><div>${awayPicks.map(marker).join('')}</div><div>${homePicks.map(marker).join('')}</div></div>` : '<div class="picks-hidden">Selections hidden until all four entries are in or kickoff begins.</div>';
+    const pickDisplay = picksVisible ? `<div class="team-picks"><div>${awayPicks.map(marker).join('')}</div><div>${homePicks.map(marker).join('')}</div></div>` : `<div class="picks-hidden">Selections hidden until all ${players.length} entries are in or kickoff begins.</div>`;
     return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.broadcast || 'TV TBD'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span></div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span></div></div>${pickDisplay}</article>`;
   }).join('');
 }
@@ -126,7 +126,7 @@ function renderWeekRecords(week) {
   $('#records-heading').textContent = `Week ${week.week} standings`;
   const target = $('#week-records');
   if (!week.picksRevealed) {
-    target.innerHTML = '<p class="picks-hidden standings-hidden">Selections and weekly results will appear after all four entries are in or kickoff begins.</p>';
+    target.innerHTML = `<p class="picks-hidden standings-hidden">Selections and weekly results will appear after all ${week.players.length} entries are in or kickoff begins.</p>`;
     return;
   }
   const headings = week.games.map(game => `<th title="${game.away} @ ${game.home}">${game.away}<br>@ ${game.home}</th>`).join('');

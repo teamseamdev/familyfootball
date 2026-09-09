@@ -1,3 +1,5 @@
+import { DEFAULT_PLAYERS } from './players.js';
+
 const teams = {
   MIN: 'Minnesota Vikings', LAC: 'Los Angeles Chargers', NYJ: 'New York Jets', CIN: 'Cincinnati Bengals',
   BUF: 'Buffalo Bills', CAR: 'Carolina Panthers', SF: 'San Francisco 49ers', HOU: 'Houston Texans',
@@ -73,9 +75,9 @@ export function createBlankState(season = new Date().getFullYear()) {
     mode: 'live',
     activeSeason: Number(season),
     activeWeek: 1,
-    players: ['Moe', 'John', 'Diane', 'Adam'],
+    players: [...DEFAULT_PLAYERS],
     weeks: {},
-    history: { Moe: [], John: [], Diane: [], Adam: [] },
+    history: Object.fromEntries(DEFAULT_PLAYERS.map(name => [name, []])),
     audit: [{ at: new Date().toISOString(), type: 'season.created', detail: `${season} pool created` }]
   };
 }

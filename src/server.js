@@ -12,6 +12,7 @@ import { timingSummary } from './timing.js';
 import { SupabaseStore } from './supabase-store.js';
 import { advanceMockWeek, createMockWeekOneState, finishMockWeek } from './mock-week.js';
 import { MemoryStore } from './memory-store.js';
+import { DEFAULT_PLAYERS } from './players.js';
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -59,7 +60,7 @@ function publicWeek(week, config, players = []) {
 async function resetLiveSeason({ store, config, season, weekNumber = 1, provider, manualGames = [], migrationKey = '' }) {
   const previous = await store.read();
   const result = await ingestWeek({ season, week: weekNumber, provider, fallbackProvider: config.fallbackProvider, manualGames });
-  const players = previous.players?.length ? previous.players : ['Moe', 'John', 'Diane', 'Adam'];
+  const players = previous.players?.length ? previous.players : [...DEFAULT_PLAYERS];
   const clean = {
     version: 1,
     mode: 'live',
@@ -149,7 +150,7 @@ export function createPoolServer(overrides = {}) {
         if (!week) return json(response, 404, { error: 'Pool link not found' });
         const requestedName = String(input.name || '').trim().slice(0, 60);
         const name = (state.players || []).find(player => player.toLowerCase() === requestedName.toLowerCase());
-        if (!name) return json(response, 400, { error: 'Choose one of the four registered players.' });
+        if (!name) return json(response, 400, { error: 'Choose one of the registered players.' });
         const existing = week.submissions.find(item => item.name.toLowerCase() === name.toLowerCase());
         if (existing) return json(response, 409, { error: `${name} already submitted picks for Week ${week.week}. Only the first submission is accepted.` });
         if (new Date() >= new Date(week.picksLockedAt)) return json(response, 409, { error: 'Picks are locked because the first game has started.' });
@@ -217,6 +218,24 @@ export function createPoolServer(overrides = {}) {
       }
 
       if (route.startsWith('/api/admin/') && !admin(request) && !(route === '/api/admin/reset-live-season' && cronAuthorized(request))) return json(response, 403, { error: 'Admin key required' });
+
+      if (request.method === 'POST' && route === '/api/admin/players') {
+        const input = await body(request);
+        const requested = Array.isArray(input.players) ? input.players.map(name => String(name).trim()).filter(Boolean) : [];
+        const unique = [...new Map(requested.map(name => [name.toLowerCase(), name])).values()];
+        if (!unique.length) return json(response, 400, { error: 'Provide at least one player.' });
+        if (unique.length !== requested.length) return json(response, 400, { error: 'Player names must be unique.' });
+        const state = await store.read();
+        const submitted = new Set(Object.values(state.weeks || {}).flatMap(week => (week.submissions || []).map(entry => entry.name.toLowerCase())));
+        const removedSubmitters = (state.players || []).filter(name => submitted.has(name.toLowerCase()) && !unique.some(next => next.toLowerCase() === name.toLowerCase()));
+        if (removedSubmitters.length) return json(response, 409, { error: `Cannot remove players with saved picks: ${removedSubmitters.join(', ')}` });
+        state.players = unique;
+        state.history ||= {};
+        for (const name of unique) state.history[name] ||= [];
+        audit(state, 'players.updated', `Roster updated: ${unique.join(', ')}`);
+        await store.write(state);
+        return json(response, 200, { ok: true, players: state.players });
+      }
 
       if (request.method === 'POST' && route === '/api/admin/reset-live-season') {
         const input = await body(request);

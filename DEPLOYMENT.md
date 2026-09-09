@@ -29,7 +29,7 @@ At five-minute intervals, the scheduler makes about 105,120 checks per year. Tha
    - `service_role` key
 4. Never expose the service-role key in browser JavaScript or commit it to GitHub. It belongs only in Vercel’s encrypted environment settings.
 
-The database begins empty. The server creates a clean season containing Moe, John, Diane, and Adam on its first read.
+The database begins empty. The server creates a clean season containing Moe, John, Diane, Adam, Connor, and Kohen on its first read.
 
 ## 2. Put the code on GitHub
 

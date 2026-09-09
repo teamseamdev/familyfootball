@@ -1,4 +1,5 @@
 import { audit } from './store.js';
+import { DEFAULT_PLAYERS } from './players.js';
 
 const MOCK_GAMES = [
   ['401872656','2026-09-10T00:20:00.000Z','NE','SEA','New England Patriots','Seattle Seahawks',-3.5],
@@ -60,11 +61,11 @@ export function createMockWeekOneState(baseUrl = 'http://localhost:4173') {
     mode: 'test',
     activeSeason: 2026,
     activeWeek: 1,
-    players: ['Moe', 'John', 'Diane', 'Adam'],
+    players: [...DEFAULT_PLAYERS],
     weeks: {
       '1': createMockWeek(1, baseUrl)
     },
-    history: { Moe: [], John: [], Diane: [], Adam: [] },
+    history: Object.fromEntries(DEFAULT_PLAYERS.map(name => [name, []])),
     audit: [{ at: now, type: 'simulation.started', detail: 'Clean 2026 Mock Week 1 created' }]
   };
 }

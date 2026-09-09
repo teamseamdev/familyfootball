@@ -99,8 +99,15 @@ test('full local flow: form, submission, result grading, and standings', async t
   const rejected = await fetch(`${base}/api/public/week/test-link/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Not Registered', picks: { g1: 'BUF' } }) });
   assert.equal(rejected.status, 400);
 
+  const rosterUpdate = await fetch(`${base}/api/admin/players`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ players: ['Jordan', 'Alex'] }) });
+  assert.equal(rosterUpdate.status, 200);
+  assert.deepEqual((await rosterUpdate.json()).players, ['Jordan', 'Alex']);
+
   const submitted = await fetch(`${base}/api/public/week/test-link/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Jordan', picks: { g1: 'BUF' } }) });
   assert.equal(submitted.status, 201);
+
+  const unsafeRemoval = await fetch(`${base}/api/admin/players`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': 'test-admin' }, body: JSON.stringify({ players: ['Alex'] }) });
+  assert.equal(unsafeRemoval.status, 409);
 
   const duplicate = await fetch(`${base}/api/public/week/test-link/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Jordan', picks: { g1: 'DEN' } }) });
   assert.equal(duplicate.status, 409);
@@ -121,7 +128,7 @@ test('full local flow: form, submission, result grading, and standings', async t
   const cleanState = store.read();
   assert.equal(cleanState.mode, 'live');
   assert.equal(cleanState.activeSeason, 2031);
-  assert.deepEqual(cleanState.history, { Jordan: [] });
+  assert.deepEqual(cleanState.history, { Jordan: [], Alex: [] });
   assert.equal(cleanState.weeks['1'].submissions.length, 0);
 });
 
@@ -140,7 +147,7 @@ test('full multi-week test flow: reset, picks, grade, and advance', async t => {
   const privateWeek = await (await fetch(`${base}/api/week`)).json();
   assert.equal(privateWeek.picksRevealed, false);
   assert.equal(privateWeek.submissions.length, 0);
-  assert.deepEqual(privateWeek.pendingPlayers, ['John', 'Diane', 'Adam']);
+  assert.deepEqual(privateWeek.pendingPlayers, ['John', 'Diane', 'Adam', 'Connor', 'Kohen']);
   assert.equal(privateWeek.canSimulate, true);
   const finished = await fetch(`${base}/api/simulation/finish`, { method: 'POST' });
   assert.equal(finished.status, 200);
