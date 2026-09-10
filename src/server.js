@@ -239,13 +239,34 @@ export function createPoolServer(overrides = {}) {
         if (!unique.length) return json(response, 400, { error: 'Provide at least one player.' });
         if (unique.length !== requested.length) return json(response, 400, { error: 'Player names must be unique.' });
         const state = await store.read();
+        const renames = Object.entries(input.renames || {}).map(([from, to]) => [String(from).trim(), String(to).trim()]).filter(([from, to]) => from && to);
+        for (const [from, to] of renames) {
+          if (!unique.some(name => name.toLowerCase() === to.toLowerCase())) return json(response, 400, { error: `Renamed player must remain on the roster: ${to}` });
+          for (const week of Object.values(state.weeks || {})) {
+            const source = (week.submissions || []).find(entry => entry.name.toLowerCase() === from.toLowerCase());
+            const conflict = (week.submissions || []).find(entry => entry.name.toLowerCase() === to.toLowerCase() && entry !== source);
+            if (source && conflict) return json(response, 409, { error: `Both ${from} and ${to} already have picks for Week ${week.week}.` });
+          }
+        }
+        for (const [from, to] of renames) {
+          for (const week of Object.values(state.weeks || {})) {
+            const submission = (week.submissions || []).find(entry => entry.name.toLowerCase() === from.toLowerCase());
+            if (submission) submission.name = to;
+          }
+          state.history ||= {};
+          const sourceHistoryKey = Object.keys(state.history).find(name => name.toLowerCase() === from.toLowerCase());
+          if (sourceHistoryKey) {
+            state.history[to] ||= state.history[sourceHistoryKey];
+            if (sourceHistoryKey !== to) delete state.history[sourceHistoryKey];
+          }
+        }
         const submitted = new Set(Object.values(state.weeks || {}).flatMap(week => (week.submissions || []).map(entry => entry.name.toLowerCase())));
         const removedSubmitters = (state.players || []).filter(name => submitted.has(name.toLowerCase()) && !unique.some(next => next.toLowerCase() === name.toLowerCase()));
         if (removedSubmitters.length) return json(response, 409, { error: `Cannot remove players with saved picks: ${removedSubmitters.join(', ')}` });
         state.players = unique;
         state.history ||= {};
         for (const name of unique) state.history[name] ||= [];
-        audit(state, 'players.updated', `Roster updated: ${unique.join(', ')}`);
+        audit(state, 'players.updated', `Roster updated: ${unique.join(', ')}${renames.length ? `; renamed ${renames.map(([from, to]) => `${from} to ${to}`).join(', ')}` : ''}`);
         await store.write(state);
         return json(response, 200, { ok: true, players: state.players });
       }
