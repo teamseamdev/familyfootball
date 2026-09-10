@@ -33,6 +33,8 @@ export function normalizeEspnEvent(event) {
   const completed = status.type?.completed === true;
   const state = status.type?.state;
   const hasScore = completed || state === 'in';
+  const possessionId = String(competition.situation?.possession || competition.situation?.team?.id || '').match(/(?:teams\/)?(\d+)(?:\?|$)/)?.[1];
+  const possessionTeam = possessionId === String(away.id || away.team?.id) ? away.team.abbreviation : possessionId === String(home.id || home.team?.id) ? home.team.abbreviation : null;
   return {
     id: String(event.id),
     kickoff: event.date,
@@ -49,6 +51,7 @@ export function normalizeEspnEvent(event) {
     statusDetail: status.type?.shortDetail || status.type?.detail || null,
     awayTimeouts: competition.situation?.awayTimeouts ?? null,
     homeTimeouts: competition.situation?.homeTimeouts ?? null,
+    possessionTeam,
     source: 'espn',
     broadcast: broadcastFromCompetition(competition),
     spreadDetails: competition.odds?.[0]?.details || null
@@ -87,6 +90,7 @@ async function fetchEspnCoreWeek(season, week, fetchImpl, headers) {
       homeScore = Number(homeScoreData.value);
     }
     const odds = oddsList.items?.[0];
+    const possessionId = String(situation.possession || situation.team?.id || situation.team?.$ref || '').match(/(?:teams\/)?(\d+)(?:\?|$)/)?.[1];
     return {
       id: String(event.id), kickoff: event.date, away, home, awayName, homeName,
       homeSpread: odds?.spread == null ? null : Number(odds.spread),
@@ -97,6 +101,7 @@ async function fetchEspnCoreWeek(season, week, fetchImpl, headers) {
       statusDetail: status.type?.shortDetail || status.type?.detail || null,
       awayTimeouts: situation.awayTimeouts ?? null,
       homeTimeouts: situation.homeTimeouts ?? null,
+      possessionTeam: possessionId === awayId ? away : possessionId === homeId ? home : null,
       source: 'espn',
       broadcast: [...new Set((broadcastList.items || []).map(item => item.station || item.media?.shortName || item.media?.name).filter(Boolean))].join(' / ') || null,
       spreadDetails: odds?.details || null

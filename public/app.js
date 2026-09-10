@@ -75,12 +75,12 @@ function render(week, season) {
 }
 
 function nextKickoff(games) {
-  const next = games.find(game => game.status !== 'final');
-  return next ? localDate(next.kickoff, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'Complete';
+  const next = games.find(game => game.status === 'scheduled');
+  return next ? localDate(next.kickoff, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'None remaining';
 }
 function nextMatchup(games) {
-  const next = games.find(game => game.status !== 'final');
-  return next ? `${next.away} @ ${next.home} • ${next.broadcast || 'TV TBD'}` : 'All games final';
+  const next = games.find(game => game.status === 'scheduled');
+  return next ? `${next.away} @ ${next.home} • ${next.broadcast || 'TV TBD'}` : games.some(game => game.status === 'live') ? 'All remaining games underway' : 'All games final';
 }
 
 function renderTrend(rows, players) {
@@ -124,9 +124,11 @@ function renderGames(games, submissions, players) {
     const result = game.status === 'final' ? finalResult : game.status === 'live' ? liveResult : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
     const awayTimeouts = game.status === 'live' && game.awayTimeouts != null ? `<small class="timeouts">TO ${'●'.repeat(game.awayTimeouts)}${'○'.repeat(Math.max(0, 3 - game.awayTimeouts))}</small>` : '';
     const homeTimeouts = game.status === 'live' && game.homeTimeouts != null ? `<small class="timeouts">TO ${'●'.repeat(game.homeTimeouts)}${'○'.repeat(Math.max(0, 3 - game.homeTimeouts))}</small>` : '';
+    const awayPossession = game.status === 'live' && game.possessionTeam === game.away ? '<i class="possession-arrow away" title="Possession" aria-label="Has possession">◀</i>' : '';
+    const homePossession = game.status === 'live' && game.possessionTeam === game.home ? '<i class="possession-arrow home" title="Possession" aria-label="Has possession">▶</i>' : '';
     const marker = entry => `<span class="pick-avatar" style="--avatar:${playerColor(entry.name, players)}" title="${entry.name}" aria-label="${entry.name}">${entry.name.slice(0, 1)}</span>`;
     const pickDisplay = game.picksRevealed ? `<div class="team-picks"><div>${awayPicks.map(marker).join('')}</div><div>${homePicks.map(marker).join('')}</div></div>` : `<div class="picks-hidden">Selections hidden until all ${players.length} entries are in or this game kicks off.</div>`;
-    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.broadcast || 'TV TBD'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span>${awayTimeouts}</div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span>${homeTimeouts}</div></div>${pickDisplay}</article>`;
+    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.broadcast || 'TV TBD'}</small></div><div class="teams"><div><strong>${game.away}${awayPossession}${awayArrow}</strong><span>${awayChoice.label}</span>${awayTimeouts}</div>${result}<div class="home"><strong>${homeArrow}${homePossession}${game.home}</strong><span>${homeChoice.label}</span>${homeTimeouts}</div></div>${pickDisplay}</article>`;
   }).join('');
 }
 

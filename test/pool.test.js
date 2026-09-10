@@ -35,7 +35,7 @@ test('ESPN ingestion falls back to the CDN scoreboard and includes its TV networ
 });
 
 test('ESPN ingestion includes live scores, clock, quarter, and timeouts', async () => {
-  const event = { id: 'live-1', date: '2030-09-08T17:00:00Z', competitions: [{ status: { displayClock: '8:21', period: 3, type: { completed: false, state: 'in', shortDetail: '8:21 - 3rd' } }, situation: { awayTimeouts: 2, homeTimeouts: 1 }, competitors: [{ homeAway: 'away', score: '17', team: { abbreviation: 'DEN', displayName: 'Denver Broncos' } }, { homeAway: 'home', score: '20', team: { abbreviation: 'BUF', displayName: 'Buffalo Bills' } }], broadcasts: [{ names: ['CBS'] }], odds: [{ spread: -3, details: 'BUF -3', homeTeamOdds: { favorite: true }, awayTeamOdds: { favorite: false } }] }] };
+  const event = { id: 'live-1', date: '2030-09-08T17:00:00Z', competitions: [{ status: { displayClock: '8:21', period: 3, type: { completed: false, state: 'in', shortDetail: '8:21 - 3rd' } }, situation: { awayTimeouts: 2, homeTimeouts: 1, possession: '1' }, competitors: [{ id: '1', homeAway: 'away', score: '17', team: { id: '1', abbreviation: 'DEN', displayName: 'Denver Broncos' } }, { id: '2', homeAway: 'home', score: '20', team: { id: '2', abbreviation: 'BUF', displayName: 'Buffalo Bills' } }], broadcasts: [{ names: ['CBS'] }], odds: [{ spread: -3, details: 'BUF -3', homeTeamOdds: { favorite: true }, awayTeamOdds: { favorite: false } }] }] };
   const fetchImpl = async () => ({ ok: true, json: async () => ({ events: [event] }) });
   const game = (await fetchEspnWeek(2030, 1, fetchImpl)).games[0];
   assert.equal(game.status, 'live');
@@ -45,6 +45,7 @@ test('ESPN ingestion includes live scores, clock, quarter, and timeouts', async 
   assert.equal(game.displayClock, '8:21');
   assert.equal(game.awayTimeouts, 2);
   assert.equal(game.homeTimeouts, 1);
+  assert.equal(game.possessionTeam, 'DEN');
 });
 
 test('ATS grading covers wins, losses, pushes, and tied games', () => {

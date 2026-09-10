@@ -53,7 +53,7 @@ export async function schedulerTick({ store, config, now = new Date() }) {
       for (const update of live.games) {
         const game = week.games.find(item => item.id === update.id);
         if (!game) continue;
-        const liveFields = ['status', 'awayScore', 'homeScore', 'period', 'displayClock', 'statusDetail', 'awayTimeouts', 'homeTimeouts'];
+        const liveFields = ['status', 'awayScore', 'homeScore', 'period', 'displayClock', 'statusDetail', 'awayTimeouts', 'homeTimeouts', 'possessionTeam'];
         if (liveFields.some(field => game[field] !== update[field])) changed += 1;
         for (const field of liveFields) game[field] = update[field] ?? null;
         game.broadcast = update.broadcast || game.broadcast || null;
