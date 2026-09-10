@@ -11,7 +11,7 @@ For the free production architecture using GitHub, Vercel, and Supabase, see `DE
 - Chronological slates with choices such as `DEN +3` and `BUF -3`.
 - A short pool route such as `/p/w8-family`, which opens the app's active pick form.
 - A mobile-friendly picks form with a dashboard button, success confirmation, and automatic return after submission.
-- A fixed five-player selector for Moe, John, Diane, Adam, and the combined Connor & Cohen entry, preventing duplicate name spellings.
+- A fixed five-player selector for Moe, John, Diane, Adam, and the combined Connor & Kohen entry, preventing duplicate name spellings.
 - Local JSON response storage for offline development.
 - Supabase persistence for the hosted family season.
 - First-submission-only enforcement for each player in each week.
@@ -118,7 +118,7 @@ If ESPN is unavailable, post a checked slate to `/api/admin/ingest` with header 
 ## Still needed before the live season
 
 1. Complete the multi-week Supabase test with at least two players.
-2. Confirm whether the five live entries remain Moe, John, Diane, Adam, and Connor & Cohen.
+2. Confirm whether the five live entries remain Moe, John, Diane, Adam, and Connor & Kohen.
 3. Choose whether to enable real SMS delivery. Console notification mode remains free.
 4. Decide when the test season should be cleared and the real ESPN Week 1 slate loaded.
 

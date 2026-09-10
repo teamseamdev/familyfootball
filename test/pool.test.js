@@ -163,7 +163,7 @@ test('full multi-week test flow: reset, picks, grade, and advance', async t => {
   assert.equal(privateWeek.picksRevealed, false);
   assert.equal(privateWeek.submissions.length, 1);
   assert.deepEqual(privateWeek.submissions[0].picks, {});
-  assert.deepEqual(privateWeek.pendingPlayers, ['John', 'Diane', 'Adam', 'Connor & Cohen']);
+  assert.deepEqual(privateWeek.pendingPlayers, ['John', 'Diane', 'Adam', 'Connor & Kohen']);
   assert.equal(privateWeek.canSimulate, true);
   const finished = await fetch(`${base}/api/simulation/finish`, { method: 'POST' });
   assert.equal(finished.status, 200);
