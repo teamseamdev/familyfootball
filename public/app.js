@@ -1,3 +1,5 @@
+import { enablePullToRefresh, startAutoRefresh } from './refresh.js';
+
 const $ = selector => document.querySelector(selector);
 const colors = ['#7FE0B7', '#FFB35B', '#6EC7FF', '#E88CFF', '#FFE16B', '#FF7D86'];
 
@@ -6,14 +8,20 @@ function localDate(value, options = {}) { return new Intl.DateTimeFormat('en-US'
 function submittedKey(week) { return `family-pool-submitted-${week.season}-${week.week}`; }
 function playerColor(name, players = []) { const index = players.findIndex(player => player.toLowerCase() === name.toLowerCase()); return colors[(index < 0 ? 0 : index) % colors.length]; }
 
-async function load() {
+async function load({ preserveRecordWeek = false } = {}) {
+  const selectedRecordWeek = preserveRecordWeek ? $('#records-week')?.value : '';
   const [weekResponse, standingsResponse] = await Promise.all([fetch('/api/week'), fetch('/api/standings')]);
   if (!weekResponse.ok || !standingsResponse.ok) throw new Error('Dashboard data could not be loaded.');
   const week = await weekResponse.json();
   const season = await standingsResponse.json();
   render(week, season);
-  populateWeekSelector(season.weeks, week.week);
-  renderWeekRecords(week);
+  const recordWeek = selectedRecordWeek || String(week.week);
+  populateWeekSelector(season.weeks, recordWeek);
+  if (Number(recordWeek) === Number(week.week)) renderWeekRecords(week);
+  else {
+    const recordResponse = await fetch(`/api/week?week=${encodeURIComponent(recordWeek)}`);
+    if (recordResponse.ok) renderWeekRecords(await recordResponse.json());
+  }
 }
 
 function render(week, season) {
@@ -110,10 +118,15 @@ function renderGames(games, submissions, players) {
     const awayArrow = game.atsOutcome?.result === 'winner' && game.atsOutcome.team === game.away ? '<i class="winner-arrow away" title="ATS winner" aria-label="ATS winner">←</i>' : '';
     const homeArrow = game.atsOutcome?.result === 'winner' && game.atsOutcome.team === game.home ? '<i class="winner-arrow home" title="ATS winner" aria-label="ATS winner">→</i>' : '';
     const push = game.atsOutcome?.result === 'push' ? '<small class="push-label">PUSH</small>' : '';
-    const result = game.status === 'final' ? `<div class="game-result">${push}<div class="game-score"><strong>${game.awayScore}</strong><span>FINAL</span><strong>${game.homeScore}</strong></div></div>` : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
+    const quarter = game.period > 4 ? 'OT' : game.period ? `Q${game.period}` : 'LIVE';
+    const liveResult = `<div class="game-result live-result"><small>LIVE • ${quarter}</small><div class="game-score"><strong>${game.awayScore ?? 0}</strong><span>${game.displayClock || '—'}</span><strong>${game.homeScore ?? 0}</strong></div></div>`;
+    const finalResult = `<div class="game-result">${push}<div class="game-score"><strong>${game.awayScore}</strong><span>FINAL</span><strong>${game.homeScore}</strong></div></div>`;
+    const result = game.status === 'final' ? finalResult : game.status === 'live' ? liveResult : `<div class="game-time">${localDate(game.kickoff, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>`;
+    const awayTimeouts = game.status === 'live' && game.awayTimeouts != null ? `<small class="timeouts">TO ${'●'.repeat(game.awayTimeouts)}${'○'.repeat(Math.max(0, 3 - game.awayTimeouts))}</small>` : '';
+    const homeTimeouts = game.status === 'live' && game.homeTimeouts != null ? `<small class="timeouts">TO ${'●'.repeat(game.homeTimeouts)}${'○'.repeat(Math.max(0, 3 - game.homeTimeouts))}</small>` : '';
     const marker = entry => `<span class="pick-avatar" style="--avatar:${playerColor(entry.name, players)}" title="${entry.name}" aria-label="${entry.name}">${entry.name.slice(0, 1)}</span>`;
     const pickDisplay = game.picksRevealed ? `<div class="team-picks"><div>${awayPicks.map(marker).join('')}</div><div>${homePicks.map(marker).join('')}</div></div>` : `<div class="picks-hidden">Selections hidden until all ${players.length} entries are in or this game kicks off.</div>`;
-    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.broadcast || 'TV TBD'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span></div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span></div></div>${pickDisplay}</article>`;
+    return `<article class="game-card"><div class="game-top"><span>${game.status}</span><small>${game.broadcast || 'TV TBD'}</small></div><div class="teams"><div><strong>${game.away}${awayArrow}</strong><span>${awayChoice.label}</span>${awayTimeouts}</div>${result}<div class="home"><strong>${homeArrow}${game.home}</strong><span>${homeChoice.label}</span>${homeTimeouts}</div></div>${pickDisplay}</article>`;
   }).join('');
 }
 
@@ -185,4 +198,7 @@ if (location.pathname.replace(/\/$/, '') === '/setup') {
   document.title = 'Family Pool Setup';
 }
 
+const refreshDashboard = () => load({ preserveRecordWeek: true });
+enablePullToRefresh(refreshDashboard);
+startAutoRefresh(refreshDashboard);
 load().catch(error => { document.body.innerHTML = `<main class="error-card"><h1>Dashboard unavailable</h1><p>${error.message}</p></main>`; });

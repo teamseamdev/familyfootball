@@ -34,6 +34,19 @@ test('ESPN ingestion falls back to the CDN scoreboard and includes its TV networ
   assert.equal(result.games[0].broadcast, 'CBS');
 });
 
+test('ESPN ingestion includes live scores, clock, quarter, and timeouts', async () => {
+  const event = { id: 'live-1', date: '2030-09-08T17:00:00Z', competitions: [{ status: { displayClock: '8:21', period: 3, type: { completed: false, state: 'in', shortDetail: '8:21 - 3rd' } }, situation: { awayTimeouts: 2, homeTimeouts: 1 }, competitors: [{ homeAway: 'away', score: '17', team: { abbreviation: 'DEN', displayName: 'Denver Broncos' } }, { homeAway: 'home', score: '20', team: { abbreviation: 'BUF', displayName: 'Buffalo Bills' } }], broadcasts: [{ names: ['CBS'] }], odds: [{ spread: -3, details: 'BUF -3', homeTeamOdds: { favorite: true }, awayTeamOdds: { favorite: false } }] }] };
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ events: [event] }) });
+  const game = (await fetchEspnWeek(2030, 1, fetchImpl)).games[0];
+  assert.equal(game.status, 'live');
+  assert.equal(game.awayScore, 17);
+  assert.equal(game.homeScore, 20);
+  assert.equal(game.period, 3);
+  assert.equal(game.displayClock, '8:21');
+  assert.equal(game.awayTimeouts, 2);
+  assert.equal(game.homeTimeouts, 1);
+});
+
 test('ATS grading covers wins, losses, pushes, and tied games', () => {
   const favoriteCovers = { away: 'DEN', home: 'BUF', homeSpread: -3, awayScore: 20, homeScore: 27, status: 'final' };
   assert.deepEqual(gradePick(favoriteCovers, 'BUF'), { result: 'win', points: 1 });
@@ -154,8 +167,11 @@ test('full multi-week test flow: reset, picks, grade, and advance', async t => {
   const base = `http://127.0.0.1:${address.port}`;
   const reset = await fetch(`${base}/api/simulation/reset-season`, { method: 'POST' });
   assert.equal(reset.status, 201);
-  const resetBody = await reset.json();
-  const week = resetBody.week;
+  await reset.json();
+  const testState = await app.store.read();
+  testState.weeks['1'].games.forEach((game, index) => { game.kickoff = new Date(Date.now() + (index + 1) * 3_600_000).toISOString(); });
+  await app.store.write(testState);
+  const week = testState.weeks['1'];
   const picks = Object.fromEntries(week.games.map(game => [game.id, game.away]));
   const submitted = await fetch(`${base}/api/public/week/mock-week-1/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Moe', picks }) });
   assert.equal(submitted.status, 201);

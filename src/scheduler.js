@@ -53,15 +53,14 @@ export async function schedulerTick({ store, config, now = new Date() }) {
       for (const update of live.games) {
         const game = week.games.find(item => item.id === update.id);
         if (!game) continue;
-        if (game.status !== update.status || game.awayScore !== update.awayScore || game.homeScore !== update.homeScore) changed += 1;
-        game.status = update.status;
-        game.awayScore = update.awayScore;
-        game.homeScore = update.homeScore;
+        const liveFields = ['status', 'awayScore', 'homeScore', 'period', 'displayClock', 'statusDetail', 'awayTimeouts', 'homeTimeouts'];
+        if (liveFields.some(field => game[field] !== update[field])) changed += 1;
+        for (const field of liveFields) game[field] = update[field] ?? null;
         game.broadcast = update.broadcast || game.broadcast || null;
         if (update.homeSpread != null && game.homeSpread == null) game.homeSpread = update.homeSpread;
       }
       week.lastScoreRefreshAt = now.toISOString();
-      week.status = week.games.every(game => game.status === 'final') ? 'final' : week.games.some(game => game.status === 'final') ? 'live' : week.status;
+      week.status = week.games.every(game => game.status === 'final') ? 'final' : week.games.some(game => game.status === 'live' || game.status === 'final') ? 'live' : week.status;
       if (changed) audit(state, 'scores.refreshed', `${changed} games changed for Week ${week.week}`);
       await store.write(state);
       if (week.status === 'final' && config.autoRollover) {

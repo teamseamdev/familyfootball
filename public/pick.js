@@ -1,3 +1,5 @@
+import { enablePullToRefresh, startAutoRefresh } from './refresh.js';
+
 const token = new URLSearchParams(location.search).get('token');
 const gameContainer = document.querySelector('#pick-games');
 const form = document.querySelector('#pick-form');
@@ -6,7 +8,8 @@ let loadedWeek;
 
 function when(value) { return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value)); }
 
-async function load() {
+async function load({ preserveChoices = false } = {}) {
+  const saved = preserveChoices ? new FormData(form) : null;
   if (!token) throw new Error('This pick link is missing its week token.');
   const response = await fetch(`/api/public/week/${encodeURIComponent(token)}`);
   if (!response.ok) throw new Error((await response.json()).error || 'This pick link is not active.');
@@ -20,6 +23,15 @@ async function load() {
   gameContainer.innerHTML = available.length ? available.map((game, index) => `<fieldset class="pick-game"><legend><span>${String(index + 1).padStart(2, '0')}</span><strong>${game.away} @ ${game.home}</strong><small>${when(game.kickoff)}</small></legend><div class="choice-grid">${game.choices.map(choice => `<label class="pick-choice"><input type="radio" name="${game.id}" value="${choice.team}" required><span><b>${choice.team}</b><small>${choice.label.replace(choice.team, '').trim()}</small></span></label>`).join('')}</div></fieldset>`).join('') : '<p class="error-message">All games for this week have started. Picks are closed.</p>';
   form.dataset.games = JSON.stringify(available.map(game => game.id));
   if (!available.length) form.querySelector('button').disabled = true;
+  if (saved) {
+    const player = saved.get('name');
+    if (player && [...document.querySelector('#player-name').options].some(option => option.value === player && !option.disabled)) document.querySelector('#player-name').value = player;
+    for (const game of available) {
+      const pick = saved.get(game.id);
+      const input = pick ? form.querySelector(`input[name="${CSS.escape(game.id)}"][value="${CSS.escape(pick)}"]`) : null;
+      if (input) input.checked = true;
+    }
+  }
 }
 
 form.addEventListener('submit', async event => {
@@ -46,4 +58,7 @@ form.addEventListener('submit', async event => {
   }
 });
 
+const refreshForm = () => load({ preserveChoices: true });
+enablePullToRefresh(refreshForm);
+startAutoRefresh(refreshForm);
 load().catch(error => { gameContainer.innerHTML = `<p class="error-message">${error.message}</p>`; form.querySelector('button').disabled = true; });

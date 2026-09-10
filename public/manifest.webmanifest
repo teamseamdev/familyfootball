@@ -1,0 +1,16 @@
+{
+  "name": "Family Football Pool",
+  "short_name": "Family Pool",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#061a22",
+  "theme_color": "#061a22",
+  "icons": [
+    {
+      "src": "/family-pool-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
